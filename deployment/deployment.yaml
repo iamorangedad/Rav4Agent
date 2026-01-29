@@ -17,6 +17,8 @@ metadata:
 data:
   IS_PERSISTENT: "True"
   CHROMA_SERVER_AUTH_PROVIDER: ""
+  CHROMA_SERVER_HOST: "0.0.0.0"
+  CHROMA_SERVER_HTTP_PORT: "8000"
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -33,7 +35,7 @@ spec:
         app: chroma
     spec:
       nodeSelector:
-        kubernetes.io/hostname: "ubuntu"
+        kubernetes.io/hostname: "raspberrypi"
         kubernetes.io/os: "linux"
       containers:
       - name: chroma

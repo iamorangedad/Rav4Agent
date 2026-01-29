@@ -45,9 +45,15 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(CHROMA_DIR, exist_ok=True)
 
 Settings.llm = Ollama(model=config.default_model_name, base_url=config.ollama_base_url)
-Settings.embed_model = OllamaEmbedding(
-    model=config.default_embedding_model, base_url=config.ollama_base_url
-)
+# Try different parameter names for OllamaEmbedding
+try:
+    Settings.embed_model = OllamaEmbedding(
+        model_name=config.default_embedding_model, base_url=config.ollama_base_url
+    )
+except TypeError:
+    Settings.embed_model = OllamaEmbedding(
+        model=config.default_embedding_model, base_url=config.ollama_base_url
+    )
 
 
 class ChatRequest(BaseModel):
@@ -330,9 +336,15 @@ async def chat(request: ChatRequest):
                 embed_model_name = request.embedding_model or config.default_embedding_model
 
                 Settings.llm = Ollama(model=model_name, base_url=config.ollama_base_url)
-                Settings.embed_model = OllamaEmbedding(
-                    model=embed_model_name, base_url=config.ollama_base_url
-                )
+                # Try different parameter names for OllamaEmbedding
+                try:
+                    Settings.embed_model = OllamaEmbedding(
+                        model_name=embed_model_name, base_url=config.ollama_base_url
+                    )
+                except TypeError:
+                    Settings.embed_model = OllamaEmbedding(
+                        model=embed_model_name, base_url=config.ollama_base_url
+                    )
 
                 vector_store = get_vector_store(CHROMA_DIR)
                 docstore = get_docstore()
