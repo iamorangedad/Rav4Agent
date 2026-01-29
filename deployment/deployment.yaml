@@ -17,8 +17,6 @@ metadata:
 data:
   IS_PERSISTENT: "True"
   CHROMA_SERVER_AUTH_PROVIDER: ""
-  CHROMA_SERVER_HOST: "0.0.0.0"
-  CHROMA_SERVER_HTTP_PORT: "8000"
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -104,7 +102,7 @@ spec:
       containers:
       - name: doc-chat
         image: doc-chat:latest
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         ports:
         - containerPort: 8000
         envFrom:
