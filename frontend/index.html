@@ -1,0 +1,945 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能文档助手</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            text-align: center;
+            padding: 40px 20px;
+            color: white;
+        }
+        
+        header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+        
+        header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+        
+        .main-content {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 20px;
+            height: calc(100vh - 200px);
+        }
+        
+        .sidebar {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .sidebar-section {
+            margin-bottom: 20px;
+        }
+        
+        .sidebar h2 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .sidebar h3 {
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #555;
+        }
+        
+        .upload-zone {
+            border: 2px dashed #667eea;
+            border-radius: 12px;
+            padding: 25px 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 15px;
+        }
+        
+        .upload-zone:hover {
+            background: #f0f4ff;
+            border-color: #764ba2;
+        }
+        
+        .upload-zone.dragover {
+            background: #e8edff;
+            border-color: #764ba2;
+        }
+        
+        .upload-icon {
+            font-size: 2.5rem;
+            margin-bottom: 8px;
+        }
+        
+        .upload-zone p {
+            color: #666;
+            font-size: 0.85rem;
+        }
+        
+        .document-list {
+            flex: 1;
+            overflow-y: auto;
+            min-height: 100px;
+        }
+        
+        .document-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 12px;
+            background: #f8f9ff;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            transition: all 0.2s;
+        }
+        
+        .document-item:hover {
+            background: #e8edff;
+            transform: translateX(3px);
+        }
+        
+        .document-item span {
+            font-size: 0.85rem;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .delete-btn {
+            background: none;
+            border: none;
+            color: #e74c3c;
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 4px;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+        }
+        
+        .delete-btn:hover {
+            background: #ffeaea;
+        }
+        
+        .model-select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid #eee;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            font-family: inherit;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 10px;
+        }
+        
+        .model-select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .model-info {
+            font-size: 0.75rem;
+            color: #888;
+            padding: 8px 10px;
+            background: #f8f9ff;
+            border-radius: 6px;
+            margin-bottom: 10px;
+        }
+        
+        .model-info .gpu-badge {
+            display: inline-block;
+            padding: 2px 6px;
+            background: #27ae60;
+            color: white;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            margin-left: 5px;
+        }
+        
+        .model-info .gpu-badge.required {
+            background: #f39c12;
+        }
+        
+        .refresh-btn {
+            width: 100%;
+            padding: 8px;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            background: white;
+            color: #667eea;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: all 0.3s;
+            margin-bottom: 10px;
+        }
+        
+        .refresh-btn:hover {
+            background: #667eea;
+            color: white;
+        }
+        
+        .chat-area {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .chat-header {
+            padding: 15px 20px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .chat-header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .ai-avatar {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.1rem;
+        }
+        
+        .chat-header-info h3 {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+        
+        .chat-header-info p {
+            font-size: 0.8rem;
+            color: #666;
+        }
+        
+        .current-model {
+            font-size: 0.8rem;
+            color: #667eea;
+            background: #f0f4ff;
+            padding: 5px 10px;
+            border-radius: 15px;
+        }
+        
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .message {
+            display: flex;
+            gap: 12px;
+            max-width: 85%;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .message.user {
+            flex-direction: row-reverse;
+            align-self: flex-end;
+        }
+        
+        .message-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            flex-shrink: 0;
+        }
+        
+        .message.assistant .message-avatar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .message.user .message-avatar {
+            background: #f0f0f0;
+            color: #333;
+        }
+        
+        .message-content {
+            padding: 12px 16px;
+            border-radius: 16px;
+            line-height: 1.6;
+            font-size: 0.9rem;
+        }
+        
+        .message.assistant .message-content {
+            background: #f8f9ff;
+            border-bottom-left-radius: 5px;
+        }
+        
+        .message.user .message-content {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-bottom-right-radius: 5px;
+        }
+        
+        .message-content p {
+            margin-bottom: 8px;
+        }
+        
+        .message-content p:last-child {
+            margin-bottom: 0;
+        }
+        
+        .chat-input-area {
+            padding: 15px 20px;
+            border-top: 1px solid #eee;
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+        }
+        
+        .chat-input-wrapper {
+            flex: 1;
+            position: relative;
+        }
+        
+        .chat-input {
+            width: 100%;
+            padding: 12px 18px;
+            border: 2px solid #eee;
+            border-radius: 20px;
+            font-size: 0.95rem;
+            font-family: inherit;
+            transition: all 0.3s;
+            resize: none;
+            max-height: 120px;
+            min-height: 50px;
+        }
+        
+        .chat-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+        }
+        
+        .send-btn {
+            width: 50px;
+            height: 50px;
+            border: none;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            cursor: pointer;
+            font-size: 1.2rem;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .send-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .send-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .loading {
+            display: flex;
+            gap: 5px;
+            padding: 8px 0;
+        }
+        
+        .loading span {
+            width: 7px;
+            height: 7px;
+            background: #667eea;
+            border-radius: 50%;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+        
+        .loading span:nth-child(1) {
+            animation-delay: -0.32s;
+        }
+        
+        .loading span:nth-child(2) {
+            animation-delay: -0.16s;
+        }
+        
+        @keyframes bounce {
+            0%, 80%, 100% {
+                transform: scale(0);
+            }
+            40% {
+                transform: scale(1);
+            }
+        }
+        
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #999;
+        }
+        
+        .empty-state-icon {
+            font-size: 3.5rem;
+            margin-bottom: 15px;
+        }
+        
+        .empty-state h3 {
+            font-size: 1.2rem;
+            margin-bottom: 8px;
+            color: #666;
+        }
+        
+        .empty-state p {
+            font-size: 0.85rem;
+        }
+        
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.75rem;
+            color: #27ae60;
+        }
+        
+        .status-dot {
+            width: 7px;
+            height: 7px;
+            background: #27ae60;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+        }
+        
+        .status-dot.error {
+            background: #e74c3c;
+        }
+        
+        .loading-models {
+            text-align: center;
+            padding: 20px;
+            color: #888;
+            font-size: 0.85rem;
+        }
+        
+        .model-group-label {
+            font-size: 0.75rem;
+            color: #888;
+            padding: 5px 10px;
+            background: #f0f0f0;
+            border-radius: 4px;
+            margin: 5px 0;
+        }
+        
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+                height: auto;
+            }
+            
+            .sidebar {
+                order: -1;
+                max-height: 400px;
+            }
+            
+            .container {
+                padding: 10px;
+            }
+            
+            header h1 {
+                font-size: 1.8rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🤖 智能文档助手</h1>
+            <p>上传文档，与AI进行智能对话</p>
+        </header>
+        
+        <div class="main-content">
+            <aside class="sidebar">
+                <div class="sidebar-section">
+                    <h2>⚙️ 模型设置</h2>
+                    
+                    <h3>对话模型</h3>
+                    <select class="model-select" id="modelSelect">
+                        <option value="">加载中...</option>
+                    </select>
+                    
+                    <div class="model-info" id="modelInfo">
+                        <span id="modelSize">-</span>
+                        <span id="modelGpu"></span>
+                    </div>
+                    
+                    <h3>嵌入模型</h3>
+                    <select class="model-select" id="embeddingModelSelect">
+                        <option value="">加载中...</option>
+                    </select>
+                    
+                    <button class="refresh-btn" onclick="refreshModels()">🔄 刷新模型列表</button>
+                </div>
+                
+                <div class="sidebar-section" style="flex: 1; display: flex; flex-direction: column;">
+                    <h2>📁 文档管理</h2>
+                    
+                    <div class="upload-zone" id="uploadZone">
+                        <div class="upload-icon">📄</div>
+                        <p>拖拽文件到此处<br>或点击上传</p>
+                        <input type="file" id="fileInput" multiple accept=".pdf,.txt,.doc,.docx,.md" style="display: none;">
+                    </div>
+                    
+                    <div class="document-list" id="documentList">
+                        <div class="empty-state" style="padding: 20px;">
+                            <p>暂无文档</p>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+            
+            <main class="chat-area">
+                <div class="chat-header">
+                    <div class="chat-header-left">
+                        <div class="ai-avatar">✨</div>
+                        <div class="chat-header-info">
+                            <h3>AI 助手</h3>
+                            <p class="status-indicator" id="statusIndicator">
+                                <span class="status-dot" id="statusDot"></span>
+                                <span id="statusText">检查连接中...</span>
+                            </p>
+                        </div>
+                    </div>
+                    <div class="current-model" id="currentModelDisplay">llama3.2</div>
+                </div>
+                
+                <div class="chat-messages" id="chatMessages">
+                    <div class="empty-state" id="emptyState">
+                        <div class="empty-state-icon">💬</div>
+                        <h3>开始对话</h3>
+                        <p>上传文档后，我可以帮您分析和解答问题</p>
+                    </div>
+                </div>
+                
+                <div class="chat-input-area">
+                    <div class="chat-input-wrapper">
+                        <textarea class="chat-input" id="messageInput" placeholder="输入您的问题..." rows="1"></textarea>
+                    </div>
+                    <button class="send-btn" id="sendBtn">➤</button>
+                </div>
+            </main>
+        </div>
+    </div>
+    
+    <script>
+        const API_BASE = 'http://localhost:8000';
+        let conversationId = null;
+        let isLoading = false;
+        let availableModels = [];
+        let selectedModel = 'llama3.2';
+        let selectedEmbeddingModel = 'nomic-embed-text';
+        
+        const uploadZone = document.getElementById('uploadZone');
+        const fileInput = document.getElementById('fileInput');
+        const documentList = document.getElementById('documentList');
+        const chatMessages = document.getElementById('chatMessages');
+        const messageInput = document.getElementById('messageInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const emptyState = document.getElementById('emptyState');
+        const modelSelect = document.getElementById('modelSelect');
+        const embeddingModelSelect = document.getElementById('embeddingModelSelect');
+        const modelSize = document.getElementById('modelSize');
+        const modelGpu = document.getElementById('modelGpu');
+        const currentModelDisplay = document.getElementById('currentModelDisplay');
+        const statusIndicator = document.getElementById('statusIndicator');
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+        
+        async function checkHealth() {
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                if (response.ok) {
+                    statusDot.classList.remove('error');
+                    statusText.textContent = '在线';
+                    return true;
+                }
+            } catch (error) {
+                console.error('Health check failed:', error);
+            }
+            statusDot.classList.add('error');
+            statusText.textContent = '连接失败';
+            return false;
+        }
+        
+        async function loadModels() {
+            try {
+                const response = await fetch(`${API_BASE}/models`);
+                const data = await response.json();
+                
+                availableModels = data.models || [];
+                updateModelSelect();
+                updateEmbeddingModelSelect();
+                
+                if (availableModels.length === 0) {
+                    loadDefaultModels();
+                }
+            } catch (error) {
+                console.error('Failed to load models:', error);
+                loadDefaultModels();
+            }
+        }
+        
+        function loadDefaultModels() {
+            const defaultModels = [
+                { name: 'llama3.2', size: '~2GB', parameter_size: '3B', quantization: 'Default', requires_gpu: false },
+                { name: 'llama3.1:8b', size: '~4.7GB', parameter_size: '8B', quantization: 'Default', requires_gpu: false },
+                { name: 'llama3.1:70b', size: '~40GB', parameter_size: '70B', quantization: 'Default', requires_gpu: true },
+                { name: 'mistral', size: '~4.1GB', parameter_size: '7B', quantization: 'Default', requires_gpu: false },
+                { name: 'qwen2:7b', size: '~4.4GB', parameter_size: '7B', quantization: 'Default', requires_gpu: false },
+                { name: 'codellama', size: '~3.8GB', parameter_size: '7B', quantization: 'Default', requires_gpu: false },
+            ];
+            
+            const embeddingModels = [
+                { name: 'nomic-embed-text', size: '~150MB', parameter_size: '137M', quantization: 'Default', requires_gpu: false },
+                { name: 'mxbai-embed-large', size: '~670MB', parameter_size: '334M', quantization: 'Default', requires_gpu: false },
+            ];
+            
+            modelSelect.innerHTML = defaultModels.map(m => 
+                `<option value="${m.name}">${m.name} (${m.size})</option>`
+            ).join('');
+            
+            embeddingModelSelect.innerHTML = embeddingModels.map(m => 
+                `<option value="${m.name}">${m.name} (${m.size})</option>`
+            ).join('');
+            
+            updateModelInfo(defaultModels[0]);
+            updateCurrentModelDisplay();
+        }
+        
+        function updateModelSelect() {
+            const llmModels = availableModels.filter(m => !m.name.includes('embed'));
+            
+            if (llmModels.length === 0) {
+                modelSelect.innerHTML = '<option value="llama3.2">llama3.2 (default)</option>';
+                return;
+            }
+            
+            modelSelect.innerHTML = llmModels.map(m => {
+                const gpuBadge = m.requires_gpu ? '<span class="gpu-badge required">GPU</span>' : '';
+                return `<option value="${m.name}">${m.name} (${m.size}) ${gpuBadge}</option>`;
+            }).join('');
+            
+            modelSelect.value = selectedModel;
+            const currentModel = llmModels.find(m => m.name === selectedModel) || llmModels[0];
+            if (currentModel) updateModelInfo(currentModel);
+        }
+        
+        function updateEmbeddingModelSelect() {
+            const embedModels = availableModels.filter(m => 
+                m.name.includes('embed') || m.parameter_size?.includes('M')
+            );
+            
+            const defaultEmbedModels = [
+                { name: 'nomic-embed-text', size: '~150MB', requires_gpu: false },
+                { name: 'mxbai-embed-large', size: '~670MB', requires_gpu: false },
+            ];
+            
+            const models = embedModels.length > 0 ? embedModels : defaultEmbedModels;
+            
+            embeddingModelSelect.innerHTML = models.map(m => 
+                `<option value="${m.name}">${m.name} (${m.size || '~150MB'})</option>`
+            ).join('');
+            
+            embeddingModelSelect.value = selectedEmbeddingModel;
+        }
+        
+        function updateModelInfo(model) {
+            modelSize.textContent = `大小: ${model.size || 'Unknown'} | 参数: ${model.parameter_size || 'Unknown'} | 量化: ${model.quantization || 'Default'}`;
+            
+            if (model.requires_gpu) {
+                modelGpu.innerHTML = '<span class="gpu-badge required">需要 GPU</span>';
+            } else {
+                modelGpu.innerHTML = '<span class="gpu-badge">CPU 可运行</span>';
+            }
+        }
+        
+        function updateCurrentModelDisplay() {
+            currentModelDisplay.textContent = selectedModel;
+        }
+        
+        modelSelect.addEventListener('change', (e) => {
+            selectedModel = e.target.value;
+            const model = availableModels.find(m => m.name === selectedModel);
+            if (model) updateModelInfo(model);
+            updateCurrentModelDisplay();
+            conversationId = null;
+        });
+        
+        embeddingModelSelect.addEventListener('change', (e) => {
+            selectedEmbeddingModel = e.target.value;
+            conversationId = null;
+        });
+        
+        async function refreshModels() {
+            modelSelect.innerHTML = '<option value="">加载中...</option>';
+            await loadModels();
+        }
+        
+        uploadZone.addEventListener('click', () => fileInput.click());
+        
+        uploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadZone.classList.add('dragover');
+        });
+        
+        uploadZone.addEventListener('dragleave', () => {
+            uploadZone.classList.remove('dragover');
+        });
+        
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                uploadFiles(files);
+            }
+        });
+        
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                uploadFiles(e.target.files);
+            }
+        });
+        
+        async function uploadFiles(files) {
+            for (let file of files) {
+                const formData = new FormData();
+                formData.append('file', file);
+                
+                try {
+                    const response = await fetch(`${API_BASE}/upload`, {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    if (response.ok) {
+                        loadDocuments();
+                    }
+                } catch (error) {
+                    console.error('上传失败:', error);
+                }
+            }
+        }
+        
+        async function loadDocuments() {
+            try {
+                const response = await fetch(`${API_BASE}/documents`);
+                const data = await response.json();
+                
+                if (data.documents && data.documents.length > 0) {
+                    documentList.innerHTML = data.documents.map(doc => `
+                        <div class="document-item">
+                            <span>📄 ${doc.length > 20 ? doc.substring(0, 20) + '...' : doc}</span>
+                            <button class="delete-btn" onclick="deleteDocument('${doc}')">✕</button>
+                        </div>
+                    `).join('');
+                } else {
+                    documentList.innerHTML = '<div class="empty-state" style="padding: 20px;"><p>暂无文档</p></div>';
+                }
+            } catch (error) {
+                console.error('加载文档列表失败:', error);
+            }
+        }
+        
+        async function deleteDocument(filename) {
+            try {
+                const response = await fetch(`${API_BASE}/documents/${filename}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    conversationId = null;
+                    loadDocuments();
+                }
+            } catch (error) {
+                console.error('删除文档失败:', error);
+            }
+        }
+        
+        messageInput.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+        });
+        
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+        
+        sendBtn.addEventListener('click', sendMessage);
+        
+        async function sendMessage() {
+            const message = messageInput.value.trim();
+            if (!message || isLoading) return;
+            
+            messageInput.value = '';
+            messageInput.style.height = 'auto';
+            
+            if (emptyState) {
+                emptyState.remove();
+            }
+            
+            addMessage(message, 'user');
+            
+            isLoading = true;
+            sendBtn.disabled = true;
+            
+            const loadingDiv = document.createElement('div');
+            loadingDiv.className = 'message assistant';
+            loadingDiv.innerHTML = `
+                <div class="message-avatar">✨</div>
+                <div class="message-content">
+                    <div class="loading">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </div>
+                </div>
+            `;
+            chatMessages.appendChild(loadingDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            
+            try {
+                const response = await fetch(`${API_BASE}/chat`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        conversation_id: conversationId,
+                        model: selectedModel,
+                        embedding_model: selectedEmbeddingModel
+                    })
+                });
+                
+                const data = await response.json();
+                
+                loadingDiv.remove();
+                
+                conversationId = data.conversation_id;
+                addMessage(data.response, 'assistant');
+            } catch (error) {
+                loadingDiv.remove();
+                addMessage('抱歉，发生了一些错误。请稍后重试。', 'assistant');
+                console.error('发送消息失败:', error);
+            } finally {
+                isLoading = false;
+                sendBtn.disabled = false;
+            }
+        }
+        
+        function addMessage(content, type) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+            
+            const formattedContent = content.split('\n').map(p => `<p>${p}</p>`).join('');
+            
+            messageDiv.innerHTML = `
+                <div class="message-avatar">${type === 'assistant' ? '✨' : '👤'}</div>
+                <div class="message-content">${formattedContent}</div>
+            `;
+            
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+        
+        checkHealth();
+        loadModels();
+        loadDocuments();
+        
+        setInterval(checkHealth, 30000);
+    </script>
+</body>
+</html>
