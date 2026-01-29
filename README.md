@@ -35,9 +35,10 @@ kubectl apply -f deployment/deployment.yaml
 
 ### 4. Check deployment status
 ```bash
-kubectl get pods -l app=doc-chat
-kubectl get pods -l app=chroma
-kubectl get svc doc-chat chroma
+kubectl get pods -n doc-chat-system -l app=doc-chat
+kubectl get pods -n doc-chat-system -l app=chroma
+kubectl get svc -n doc-chat-system doc-chat chroma
+kubectl get ingress -n doc-chat-system doc-chat
 ```
 
 ## API Documentation

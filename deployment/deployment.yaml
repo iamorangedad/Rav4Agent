@@ -1,7 +1,13 @@
 apiVersion: v1
+kind: Namespace
+metadata:
+  name: doc-chat-system
+---
+apiVersion: v1
 kind: ConfigMap
 metadata:
   name: doc-chat-config
+  namespace: doc-chat-system
 data:
   OLLAMA_BASE_URL: "http://10.0.0.55:11434"
   MODEL_NAME: "llama3.2"
@@ -14,6 +20,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: chroma-config
+  namespace: doc-chat-system
 data:
   IS_PERSISTENT: "True"
   CHROMA_SERVER_AUTH_PROVIDER: ""
@@ -22,6 +29,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: chroma
+  namespace: doc-chat-system
 spec:
   replicas: 1
   selector:
@@ -62,6 +70,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: chroma
+  namespace: doc-chat-system
 spec:
   selector:
     app: chroma
@@ -75,6 +84,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: chroma-pvc
+  namespace: doc-chat-system
 spec:
   accessModes:
     - ReadWriteOnce
@@ -86,6 +96,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: doc-chat
+  namespace: doc-chat-system
 spec:
   replicas: 1
   selector:
@@ -126,6 +137,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: doc-chat
+  namespace: doc-chat-system
 spec:
   selector:
     app: doc-chat
@@ -139,6 +151,7 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: doc-chat
+  namespace: doc-chat-system
   annotations:
     kubernetes.io/ingress.class: nginx
     nginx.ingress.kubernetes.io/cors-allow-origin: "*"
