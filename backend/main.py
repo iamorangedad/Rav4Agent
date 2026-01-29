@@ -13,6 +13,20 @@ from llama_index.core.storage.index_store import SimpleIndexStore
 from llama_index.core.vector_stores import SimpleVectorStore
 import shutil
 
+
+class AppConfig:
+    """Application configuration from environment variables"""
+    def __init__(self):
+        self.ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://10.0.0.55:11434")
+        self.default_model_name = os.getenv("MODEL_NAME", "llama3.2")
+        self.default_embedding_model = os.getenv("EMBEDDING_MODEL", "nomic-embed-text")
+        self.use_chroma = os.getenv("USE_CHROMA", "false").lower() == "true"
+        self.chroma_host = os.getenv("CHROMA_HOST", "chroma")
+        self.chroma_port = int(os.getenv("CHROMA_PORT", "8000"))
+
+
+config = AppConfig()
+
 app = FastAPI(
     title="Document Chat API", description="Document Chat System with LlamaIndex"
 )
@@ -30,14 +44,9 @@ CHROMA_DIR = "chroma_db"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(CHROMA_DIR, exist_ok=True)
 
-USE_CHROMA = os.getenv("USE_CHROMA", "false").lower() == "true"
-CHROMA_HOST = os.getenv("CHROMA_HOST", "chroma")
-CHROMA_PORT = int(os.getenv("CHROMA_PORT", "8000"))
-OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://10.0.0.55:11434")
-
-Settings.llm = Ollama(model="llama3.2", base_url=OLLAMA_BASE_URL)
+Settings.llm = Ollama(model=config.default_model_name, base_url=config.ollama_base_url)
 Settings.embed_model = OllamaEmbedding(
-    model="nomic-embed-text", base_url=OLLAMA_BASE_URL
+    model=config.default_embedding_model, base_url=config.ollama_base_url
 )
 
 
@@ -65,12 +74,12 @@ conversation_history = {}
 
 
 def get_vector_store(persist_dir: str):
-    if USE_CHROMA:
+    if config.use_chroma:
         try:
             import chromadb
             from llama_index.vector_stores.chroma import ChromaVectorStore
 
-            chroma_client = chromadb.HttpClient(host=CHROMA_HOST, port=CHROMA_PORT)
+            chroma_client = chromadb.HttpClient(host=config.chroma_host, port=config.chroma_port)
             chroma_collection = chroma_client.get_or_create_collection("documents")
             return ChromaVectorStore(chroma_collection=chroma_collection)
         except Exception as e:
@@ -81,13 +90,13 @@ def get_vector_store(persist_dir: str):
 
 
 def get_docstore():
-    if USE_CHROMA:
+    if config.use_chroma:
         return SimpleDocumentStore()
     return SimpleDocumentStore()
 
 
 def get_index_store():
-    if USE_CHROMA:
+    if config.use_chroma:
         return SimpleIndexStore()
     return SimpleIndexStore()
 
@@ -96,7 +105,7 @@ def get_ollama_models():
     """Fetch available models from Ollama"""
     try:
         with httpx.Client(timeout=10.0) as client:
-            response = client.get(f"{OLLAMA_BASE_URL}/api/tags")
+            response = client.get(f"{config.ollama_base_url}/api/tags")
             if response.status_code == 200:
                 data = response.json()
                 models = []
@@ -178,9 +187,16 @@ def get_default_models():
     """Return default model list if Ollama is not available"""
     return [
         {
-            "name": "llama3.2",
+            "name": config.default_model_name,
             "size": "~2GB",
             "parameter_size": "3B",
+            "quantization": "Default",
+            "requires_gpu": False,
+        },
+        {
+            "name": config.default_embedding_model,
+            "size": "~150MB",
+            "parameter_size": "137M",
             "quantization": "Default",
             "requires_gpu": False,
         },
@@ -192,22 +208,8 @@ def get_default_models():
             "requires_gpu": False,
         },
         {
-            "name": "llama3.1:70b",
-            "size": "~40GB",
-            "parameter_size": "70B",
-            "quantization": "Default",
-            "requires_gpu": True,
-        },
-        {
             "name": "mistral",
             "size": "~4.1GB",
-            "parameter_size": "7B",
-            "quantization": "Default",
-            "requires_gpu": False,
-        },
-        {
-            "name": "codellama",
-            "size": "~3.8GB",
             "parameter_size": "7B",
             "quantization": "Default",
             "requires_gpu": False,
@@ -219,37 +221,16 @@ def get_default_models():
             "quantization": "Default",
             "requires_gpu": False,
         },
-        {
-            "name": "qwen2:72b",
-            "size": "~41GB",
-            "parameter_size": "72B",
-            "quantization": "Default",
-            "requires_gpu": True,
-        },
-        {
-            "name": "deepseek-coder",
-            "size": "~2GB",
-            "parameter_size": "1.5B",
-            "quantization": "Default",
-            "requires_gpu": False,
-        },
-        {
-            "name": "nomic-embed-text",
-            "size": "~150MB",
-            "parameter_size": "137M",
-            "quantization": "Default",
-            "requires_gpu": False,
-        },
     ]
 
 
 @app.on_event("startup")
 async def startup_event():
-    if USE_CHROMA:
-        print(f"Using Chroma vector database at {CHROMA_HOST}:{CHROMA_PORT}")
+    if config.use_chroma:
+        print(f"Using Chroma vector database at {config.chroma_host}:{config.chroma_port}")
     else:
         print("Using in-memory vector database")
-    print(f"Ollama base URL: {OLLAMA_BASE_URL}")
+    print(f"Ollama base URL: {config.ollama_base_url}")
 
 
 @app.get("/models", summary="Get available Ollama models")
@@ -265,8 +246,8 @@ async def get_recommended_models():
     return {
         "recommended_models": [
             {
-                "name": "llama3.2",
-                "description": "Lightweight, fast, good for most use cases",
+                "name": config.default_model_name,
+                "description": "Default model configured for this deployment",
                 "context_window": "128K",
                 "gpu_required": False,
             },
@@ -291,8 +272,8 @@ async def get_recommended_models():
         ],
         "embedding_models": [
             {
-                "name": "nomic-embed-text",
-                "description": "High quality text embeddings",
+                "name": config.default_embedding_model,
+                "description": "Default embedding model configured for this deployment",
                 "dimensions": 768,
                 "gpu_required": False,
             },
@@ -345,14 +326,12 @@ async def chat(request: ChatRequest):
 
         if request.conversation_id not in conversation_history:
             try:
-                model_name = request.model or os.getenv("MODEL_NAME", "llama3.2")
-                embed_model_name = request.embedding_model or os.getenv(
-                    "EMBEDDING_MODEL", "nomic-embed-text"
-                )
+                model_name = request.model or config.default_model_name
+                embed_model_name = request.embedding_model or config.default_embedding_model
 
-                Settings.llm = Ollama(model=model_name, base_url=OLLAMA_BASE_URL)
+                Settings.llm = Ollama(model=model_name, base_url=config.ollama_base_url)
                 Settings.embed_model = OllamaEmbedding(
-                    model=embed_model_name, base_url=OLLAMA_BASE_URL
+                    model=embed_model_name, base_url=config.ollama_base_url
                 )
 
                 vector_store = get_vector_store(CHROMA_DIR)
@@ -406,8 +385,8 @@ async def delete_document(filename: str):
 async def health_check():
     return {
         "status": "healthy",
-        "vector_store": "chroma" if USE_CHROMA else "in-memory",
-        "ollama_url": OLLAMA_BASE_URL,
+        "vector_store": "chroma" if config.use_chroma else "in-memory",
+        "ollama_url": config.ollama_base_url,
     }
 
 

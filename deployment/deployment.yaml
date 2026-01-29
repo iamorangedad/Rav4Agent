@@ -33,7 +33,7 @@ spec:
         app: chroma
     spec:
       nodeSelector:
-        kubernetes.io/hostname: "raspberrypi"
+        kubernetes.io/hostname: "ubuntu"
         kubernetes.io/os: "linux"
       containers:
       - name: chroma
