@@ -1,6 +1,15 @@
 """Pydantic models for API requests and responses."""
 from typing import List, Optional
 from pydantic import BaseModel, Field
+from enum import Enum
+
+
+class TaskStatusEnum(str, Enum):
+    """Task status enumeration."""
+    PENDING = "pending"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
 
 
 class ChatRequest(BaseModel):
@@ -47,6 +56,7 @@ class UploadResponse(BaseModel):
     message: str = Field(..., description="Success message")
     filename: str = Field(..., description="Uploaded filename")
     size: int = Field(..., description="File size in bytes")
+    task_id: Optional[str] = Field(None, description="Async indexing task ID")
 
 
 class DocumentListResponse(BaseModel):
@@ -77,3 +87,31 @@ class RecommendedModelsResponse(BaseModel):
     """Response model for recommended models."""
     recommended_models: List[RecommendedModel] = Field(..., description="Recommended LLM models")
     embedding_models: List[EmbeddingModelInfo] = Field(..., description="Recommended embedding models")
+
+
+class IndexingTaskResponse(BaseModel):
+    """Response model for indexing task."""
+    task_id: str = Field(..., description="Task ID")
+    filename: str = Field(..., description="Document filename")
+    status: TaskStatusEnum = Field(..., description="Task status")
+    progress: int = Field(..., description="Progress percentage (0-100)")
+    message: str = Field(..., description="Status message")
+    created_at: Optional[str] = Field(None, description="Creation timestamp")
+    completed_at: Optional[str] = Field(None, description="Completion timestamp")
+    error: Optional[str] = Field(None, description="Error message if failed")
+
+
+class TaskListResponse(BaseModel):
+    """Response model for task list."""
+    tasks: List[IndexingTaskResponse] = Field(..., description="List of indexing tasks")
+    pending_count: int = Field(..., description="Number of pending tasks")
+    processing_count: int = Field(..., description="Number of processing tasks")
+
+
+class ProcessingStatusResponse(BaseModel):
+    """Response for processing status summary."""
+    has_pending_tasks: bool = Field(..., description="Whether there are pending tasks")
+    has_processing_tasks: bool = Field(..., description="Whether there are processing tasks")
+    pending_count: int = Field(..., description="Number of pending tasks")
+    processing_count: int = Field(..., description="Number of processing tasks")
+    tasks: List[IndexingTaskResponse] = Field(..., description="Recent tasks")

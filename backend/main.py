@@ -97,6 +97,13 @@ def start_cleanup_task():
     logger.info("[Startup] Started conversation cleanup thread")
 
 
+def start_indexing_service():
+    """Initialize the async indexing service."""
+    from app.services import get_indexing_service
+    indexing_service = get_indexing_service()
+    logger.info("[Startup] Async indexing service initialized")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan handler."""
@@ -104,9 +111,13 @@ async def lifespan(app: FastAPI):
     setup_directories()
     startup_checks()
     start_cleanup_task()
+    start_indexing_service()
     yield
-    # Shutdown (if needed)
+    # Shutdown
     logger.info("[Shutdown] Doc-Chat API shutting down...")
+    from app.services import get_indexing_service
+    indexing_service = get_indexing_service()
+    indexing_service.shutdown()
 
 
 def create_application() -> FastAPI:

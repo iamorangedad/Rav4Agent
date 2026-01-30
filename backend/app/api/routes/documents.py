@@ -1,7 +1,7 @@
 """Document management routes."""
 from fastapi import APIRouter, UploadFile, File, HTTPException
 
-from app.services import DocumentService, ChatService
+from app.services import DocumentService, ChatService, get_indexing_service
 from app.models.schemas import (
     UploadResponse,
     DocumentListResponse,
@@ -14,13 +14,19 @@ document_service = DocumentService()
 
 @router.post("/upload", response_model=UploadResponse)
 async def upload_document(file: UploadFile = File(...)):
-    """Upload a document."""
+    """Upload a document and start async indexing."""
     try:
         result = document_service.save_document(file.filename, file.file)
+        
+        # Create async indexing task
+        indexing_service = get_indexing_service()
+        task = indexing_service.create_task(result['filename'])
+        
         return UploadResponse(
-            message=f"File {result['filename']} uploaded successfully",
+            message=f"File {result['filename']} uploaded successfully, indexing started",
             filename=result['filename'],
-            size=result['size']
+            size=result['size'],
+            task_id=task.task_id
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

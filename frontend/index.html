@@ -509,6 +509,83 @@
             margin: 5px 0;
         }
         
+        .processing-status {
+            background: #f8f9ff;
+            border-radius: 8px;
+            padding: 10px;
+        }
+        
+        .processing-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 10px;
+            background: white;
+            border-radius: 6px;
+            margin-bottom: 6px;
+            font-size: 0.8rem;
+        }
+        
+        .processing-item:last-child {
+            margin-bottom: 0;
+        }
+        
+        .processing-item .filename {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            margin-right: 8px;
+        }
+        
+        .processing-item .progress {
+            width: 60px;
+            height: 6px;
+            background: #eee;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        
+        .processing-item .progress-bar {
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 3px;
+            transition: width 0.3s ease;
+        }
+        
+        .processing-item .status-badge {
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            margin-left: 8px;
+        }
+        
+        .processing-item .status-badge.pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .processing-item .status-badge.processing {
+            background: #cce5ff;
+            color: #004085;
+            animation: pulse 1.5s infinite;
+        }
+        
+        .processing-item .status-badge.completed {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .processing-item .status-badge.failed {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+        
         @media (max-width: 768px) {
             .main-content {
                 grid-template-columns: 1fr;
@@ -574,6 +651,20 @@
                             <p>No documents</p>
                         </div>
                     </div>
+                </div>
+                
+                <div class="sidebar-section">
+                    <h2>⚙️ Vector Database Status</h2>
+                    <div id="processingStatus" class="processing-status">
+                        <div class="processing-empty" id="processingEmpty">
+                            <p style="color: #27ae60; font-size: 0.85rem;">✓ No documents indexing</p>
+                        </div>
+                        <div class="processing-list" id="processingList" style="display: none;">
+                        </div>
+                    </div>
+                    <button class="refresh-btn" onclick="loadProcessingStatus()" style="margin-top: 10px;">
+                        🔄 Refresh Status
+                    </button>
                 </div>
             </aside>
             
@@ -814,6 +905,7 @@
                         const data = await response.json();
                         console.log('Upload successful:', data.message);
                         loadDocuments();
+                        loadProcessingStatus();
                     } else {
                         const error = await response.text();
                         console.error('Upload failed:', error);
@@ -845,6 +937,53 @@
                 console.error('Failed to load document list:', error);
             }
         }
+        
+        async function loadProcessingStatus() {
+            try {
+                const response = await fetch(`${API_BASE}/tasks/processing-status`);
+                const data = await response.json();
+                
+                const processingList = document.getElementById('processingList');
+                const processingEmpty = document.getElementById('processingEmpty');
+                
+                if (data.has_pending_tasks || data.has_processing_tasks) {
+                    processingEmpty.style.display = 'none';
+                    processingList.style.display = 'block';
+                    
+                    processingList.innerHTML = data.tasks.map(task => {
+                        const statusClass = task.status;
+                        const statusText = {
+                            'pending': 'Waiting',
+                            'processing': `${task.progress}%`,
+                            'completed': 'Done',
+                            'failed': 'Failed'
+                        }[task.status] || task.status;
+                        
+                        const filename = task.filename.length > 15 
+                            ? task.filename.substring(0, 15) + '...' 
+                            : task.filename;
+                        
+                        return `
+                            <div class="processing-item">
+                                <span class="filename" title="${task.filename}">📄 ${filename}</span>
+                                <div class="progress">
+                                    <div class="progress-bar" style="width: ${task.progress}%"></div>
+                                </div>
+                                <span class="status-badge ${statusClass}">${statusText}</span>
+                            </div>
+                        `;
+                    }).join('');
+                } else {
+                    processingEmpty.style.display = 'block';
+                    processingList.style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Failed to load processing status:', error);
+            }
+        }
+        
+        // Auto-refresh processing status every 3 seconds
+        setInterval(loadProcessingStatus, 3000);
         
         async function deleteDocument(filename) {
             try {
@@ -954,6 +1093,7 @@
         checkHealth();
         loadModels();
         loadDocuments();
+        loadProcessingStatus();
         
         setInterval(checkHealth, 30000);
     </script>
