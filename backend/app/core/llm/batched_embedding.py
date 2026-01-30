@@ -68,23 +68,28 @@ class BatchedOllamaEmbedding(BaseEmbedding):
     
     def _get_text_embedding(self, text: str) -> List[float]:
         """Get embedding for a single text with retry."""
-        # Truncate text to max 4000 characters to prevent Ollama overload
-        max_length = 4000
+        # Truncate text to max 2000 characters to prevent Ollama batch panic
+        max_length = 2000
         if len(text) > max_length:
             text = text[:max_length] + "..."
             logger.warning(f"[Embedding] Truncated text to {max_length} chars")
         
+        last_error = None
         for attempt in range(self._max_retries):
             try:
                 return self._embed_model._get_text_embedding(text)
             except Exception as e:
+                last_error = e
                 logger.error(f"[Embedding] Text embedding failed (attempt {attempt + 1}/{self._max_retries}): {e}")
                 if attempt < self._max_retries - 1:
                     wait_time = self._retry_delay * (attempt + 1)
                     logger.info(f"[Embedding] Waiting {wait_time}s before retry...")
                     time.sleep(wait_time)
-                else:
-                    raise
+        
+        # All retries failed, raise the last error
+        if last_error:
+            raise last_error
+        return []  # Fallback (should never reach here)
     
     def _get_text_embeddings(self, texts: List[str]) -> List[List[float]]:
         """
@@ -98,11 +103,11 @@ class BatchedOllamaEmbedding(BaseEmbedding):
         all_embeddings = []
         total = len(texts)
         
-        logger.info(f"[Embedding] Processing {total} texts one by one (max 4000 chars each)")
+        logger.info(f"[Embedding] Processing {total} texts one by one (max 2000 chars each)")
         
         for i, text in enumerate(texts):
-            # Truncate text to max 4000 characters
-            max_length = 4000
+            # Truncate text to max 2000 characters to prevent Ollama batch panic
+            max_length = 2000
             if len(text) > max_length:
                 text = text[:max_length] + "..."
                 logger.warning(f"[Embedding] Truncated text {i+1} from {len(text)} to {max_length} chars")
