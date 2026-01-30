@@ -1087,9 +1087,25 @@
                             ? task.filename.substring(0, 15) + '...' 
                             : task.filename;
                         
+                        // Show chunk info for large documents
+                        let chunkInfo = '';
+                        if (task.chunk_count > 0) {
+                            if (task.status === 'processing') {
+                                chunkInfo = `<small style="font-size: 0.65rem; color: #666; margin-left: 4px;">${task.processed_pages || 0}/${task.chunk_count} chunks</small>`;
+                            } else if (task.status === 'completed') {
+                                chunkInfo = `<small style="font-size: 0.65rem; color: #27ae60; margin-left: 4px;">${task.chunk_count} chunks</small>`;
+                            }
+                        } else if (task.total_pages > 0) {
+                            if (task.status === 'processing') {
+                                chunkInfo = `<small style="font-size: 0.65rem; color: #666; margin-left: 4px;">${task.processed_pages || 0}/${task.total_pages} pages</small>`;
+                            } else if (task.status === 'completed') {
+                                chunkInfo = `<small style="font-size: 0.65rem; color: #27ae60; margin-left: 4px;">${task.total_pages} pages</small>`;
+                            }
+                        }
+                        
                         return `
                             <div class="processing-item">
-                                <span class="filename" title="${task.filename}">📄 ${filename}</span>
+                                <span class="filename" title="${task.filename}">📄 ${filename}${chunkInfo}</span>
                                 <div class="progress">
                                     <div class="progress-bar" style="width: ${task.progress}%"></div>
                                 </div>

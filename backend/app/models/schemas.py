@@ -99,6 +99,9 @@ class IndexingTaskResponse(BaseModel):
     created_at: Optional[str] = Field(None, description="Creation timestamp")
     completed_at: Optional[str] = Field(None, description="Completion timestamp")
     error: Optional[str] = Field(None, description="Error message if failed")
+    total_pages: int = Field(0, description="Total number of pages/chunks")
+    processed_pages: int = Field(0, description="Number of pages/chunks processed")
+    chunk_count: int = Field(0, description="Total chunk count for large documents")
 
 
 class TaskListResponse(BaseModel):
