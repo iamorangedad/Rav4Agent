@@ -67,65 +67,71 @@ class BatchedOllamaEmbedding(BaseEmbedding):
         return self._embed_model._get_query_embedding(query)
     
     def _get_text_embedding(self, text: str) -> List[float]:
-        """Get embedding for a text."""
-        return self._embed_model._get_text_embedding(text)
+        """Get embedding for a single text with retry."""
+        # Truncate text to max 4000 characters to prevent Ollama overload
+        max_length = 4000
+        if len(text) > max_length:
+            text = text[:max_length] + "..."
+            logger.warning(f"[Embedding] Truncated text to {max_length} chars")
+        
+        for attempt in range(self._max_retries):
+            try:
+                return self._embed_model._get_text_embedding(text)
+            except Exception as e:
+                logger.error(f"[Embedding] Text embedding failed (attempt {attempt + 1}/{self._max_retries}): {e}")
+                if attempt < self._max_retries - 1:
+                    wait_time = self._retry_delay * (attempt + 1)
+                    logger.info(f"[Embedding] Waiting {wait_time}s before retry...")
+                    time.sleep(wait_time)
+                else:
+                    raise
     
     def _get_text_embeddings(self, texts: List[str]) -> List[List[float]]:
         """
-        Get embeddings for multiple texts with batching.
+        Get embeddings for multiple texts one by one to avoid overwhelming Ollama.
         
-        Process in smaller batches to avoid overwhelming Ollama.
-        Truncate long texts to prevent memory issues.
+        Process individually instead of batches for better stability.
         """
         if not texts:
             return []
         
-        # Truncate texts to max 8000 characters to prevent Ollama overload
-        max_length = 8000
-        truncated_texts = []
-        for text in texts:
-            if len(text) > max_length:
-                truncated_texts.append(text[:max_length] + "...")
-                logger.warning(f"[Embedding] Truncated text from {len(text)} to {max_length} chars")
-            else:
-                truncated_texts.append(text)
-        
         all_embeddings = []
-        total = len(truncated_texts)
+        total = len(texts)
         
-        logger.info(f"[Embedding] Processing {total} texts in batches of {self._batch_size}")
+        logger.info(f"[Embedding] Processing {total} texts one by one (max 4000 chars each)")
         
-        for i in range(0, total, self._batch_size):
-            batch = truncated_texts[i:i + self._batch_size]
-            batch_num = i // self._batch_size + 1
-            total_batches = (total + self._batch_size - 1) // self._batch_size
+        for i, text in enumerate(texts):
+            # Truncate text to max 4000 characters
+            max_length = 4000
+            if len(text) > max_length:
+                text = text[:max_length] + "..."
+                logger.warning(f"[Embedding] Truncated text {i+1} from {len(text)} to {max_length} chars")
             
-            # Log batch details
-            total_chars = sum(len(t) for t in batch)
-            logger.info(f"[Embedding] Processing batch {batch_num}/{total_batches} ({len(batch)} texts, {total_chars} total chars)")
-            
-            # Retry logic for each batch
+            # Retry logic for each text
             for attempt in range(self._max_retries):
                 try:
-                    batch_embeddings = self._embed_model._get_text_embeddings(batch)
-                    all_embeddings.extend(batch_embeddings)
+                    embedding = self._embed_model._get_text_embedding(text)
+                    all_embeddings.append(embedding)
                     
-                    # Longer delay between batches to let Ollama recover
-                    if i + self._batch_size < total:
-                        logger.info(f"[Embedding] Waiting {self._retry_delay}s before next batch...")
-                        time.sleep(self._retry_delay)
+                    # Small delay between texts to not overwhelm Ollama
+                    if i < total - 1:
+                        time.sleep(0.5)
                     
                     break
                 except Exception as e:
-                    logger.error(f"[Embedding] Batch {batch_num} failed (attempt {attempt + 1}/{self._max_retries}): {e}")
+                    logger.error(f"[Embedding] Text {i+1}/{total} failed (attempt {attempt + 1}/{self._max_retries}): {e}")
                     
                     if attempt < self._max_retries - 1:
                         wait_time = self._retry_delay * (attempt + 1)
                         logger.info(f"[Embedding] Waiting {wait_time}s before retry...")
                         time.sleep(wait_time)
                     else:
-                        logger.error(f"[Embedding] Batch {batch_num} failed after {self._max_retries} attempts")
+                        logger.error(f"[Embedding] Text {i+1}/{total} failed after {self._max_retries} attempts")
                         raise
+            
+            # Log progress every 10 texts
+            if (i + 1) % 10 == 0:
+                logger.info(f"[Embedding] Progress: {i+1}/{total} texts processed")
         
         logger.info(f"[Embedding] Successfully processed {len(all_embeddings)} embeddings")
         return all_embeddings
