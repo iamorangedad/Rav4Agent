@@ -805,16 +805,23 @@
                 formData.append('file', file);
                 
                 try {
-                    const response = await fetch(`${API_BASE}/upload`, {
+                    const response = await fetch(`${API_BASE}/documents/upload`, {
                         method: 'POST',
                         body: formData
                     });
                     
                     if (response.ok) {
+                        const data = await response.json();
+                        console.log('Upload successful:', data.message);
                         loadDocuments();
+                    } else {
+                        const error = await response.text();
+                        console.error('Upload failed:', error);
+                        alert('Upload failed: ' + error);
                     }
                 } catch (error) {
                     console.error('Upload failed:', error);
+                    alert('Upload error: ' + error.message);
                 }
             }
         }
