@@ -74,8 +74,31 @@ async def serve_index():
     # Fallback: return API info if frontend not built yet
     return {"message": "Doc-Chat API", "docs": "/docs", "health": "/health"}
 
+def check_ollama_model_exists(model_name: str, base_url: str) -> bool:
+    """Check if a model exists in Ollama"""
+    try:
+        with httpx.Client(timeout=5.0) as client:
+            response = client.get(f"{base_url}/api/tags")
+            if response.status_code == 200:
+                data = response.json()
+                models = [m.get("name", "") for m in data.get("models", [])]
+                return any(model_name in m or m in model_name for m in models)
+    except Exception as e:
+        logger.warning(f"[ModelCheck] Failed to check model {model_name}: {e}")
+    return False
+
+
 def create_ollama_embedding(model_name: str, base_url: str):
     """Create OllamaEmbedding with automatic parameter compatibility handling"""
+    # 先检查模型是否存在
+    if not check_ollama_model_exists(model_name, base_url):
+        error_msg = (
+            f'Model "{model_name}" not found in Ollama. '
+            f'Please run: ollama pull {model_name}'
+        )
+        logger.error(f"[Embedding] {error_msg}")
+        raise HTTPException(status_code=404, detail=error_msg)
+    
     try:
         return OllamaEmbedding(model_name=model_name, base_url=base_url)
     except TypeError:
@@ -323,10 +346,35 @@ async def startup_event():
     logger.info(f"[Startup] Static directory: {STATIC_DIR}")
     logger.info("=" * 50)
     
-    # 测试 Ollama 连接
+    # 测试 Ollama 连接并检查必需模型
     try:
         models = get_ollama_models()
         logger.info(f"[Startup] Successfully connected to Ollama, found {len(models)} models")
+        
+        # 检查默认模型是否存在
+        default_model_exists = check_ollama_model_exists(
+            config.default_model_name, config.ollama_base_url
+        )
+        if not default_model_exists:
+            logger.warning(
+                f"[Startup] Default model '{config.default_model_name}' NOT FOUND! "
+                f"Run: ollama pull {config.default_model_name}"
+            )
+        else:
+            logger.info(f"[Startup] Default model '{config.default_model_name}' is ready")
+        
+        # 检查嵌入模型是否存在
+        embed_model_exists = check_ollama_model_exists(
+            config.default_embedding_model, config.ollama_base_url
+        )
+        if not embed_model_exists:
+            logger.warning(
+                f"[Startup] Embedding model '{config.default_embedding_model}' NOT FOUND! "
+                f"Run: ollama pull {config.default_embedding_model}"
+            )
+        else:
+            logger.info(f"[Startup] Embedding model '{config.default_embedding_model}' is ready")
+            
     except Exception as e:
         logger.warning(f"[Startup] Could not connect to Ollama: {e}")
     
