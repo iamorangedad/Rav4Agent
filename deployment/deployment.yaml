@@ -147,7 +147,7 @@ spec:
       containers:
       - name: doc-chat
         image: doc-chat:latest
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8000
         envFrom:
