@@ -5,6 +5,9 @@ from typing import List, Optional
 import os
 import uuid
 import httpx
+import re
+import time
+import threading
 from llama_index.core import VectorStoreIndex, SimpleDirectoryReader, Settings
 from llama_index.llms.ollama import Ollama
 from llama_index.embeddings.ollama import OllamaEmbedding
@@ -31,12 +34,14 @@ app = FastAPI(
     title="Document Chat API", description="Document Chat System with LlamaIndex"
 )
 
+# CORS 配置：从环境变量读取允许的域名，默认为安全值
+cors_origins = os.getenv("ALLOWED_ORIGINS", "").split(",") if os.getenv("ALLOWED_ORIGINS") else ["*"]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 UPLOAD_DIR = "uploads"
@@ -77,6 +82,53 @@ class ModelInfo(BaseModel):
 
 
 conversation_history = {}
+conversation_timestamps = {}  # 记录会话最后访问时间
+
+
+def validate_filename(filename: str) -> bool:
+    """验证文件名是否安全，防止路径遍历攻击"""
+    if not filename:
+        return False
+    # 检查非法字符和路径遍历尝试
+    if re.search(r'[\\/:*?"<>|]', filename):
+        return False
+    # 检查是否包含 .. 路径遍历
+    if '..' in filename:
+        return False
+    # 只允许字母数字、中文、空格、点和下划线
+    if not re.match(r'^[\w\-. \u4e00-\u9fa5]+$', filename):
+        return False
+    return True
+
+
+def cleanup_expired_conversations():
+    """清理超过24小时未访问的会话"""
+    current_time = time.time()
+    expired = []
+    for conv_id, last_access in list(conversation_timestamps.items()):
+        if current_time - last_access > 86400:  # 24小时
+            expired.append(conv_id)
+    
+    for conv_id in expired:
+        if conv_id in conversation_history:
+            del conversation_history[conv_id]
+        if conv_id in conversation_timestamps:
+            del conversation_timestamps[conv_id]
+    
+    if expired:
+        print(f"Cleaned up {len(expired)} expired conversations")
+
+
+def start_cleanup_thread():
+    """启动定期清理线程"""
+    def cleanup_loop():
+        while True:
+            time.sleep(3600)  # 每小时检查一次
+            cleanup_expired_conversations()
+    
+    thread = threading.Thread(target=cleanup_loop, daemon=True)
+    thread.start()
+    print("Started conversation cleanup thread")
 
 
 def get_vector_store(persist_dir: str):
@@ -237,6 +289,8 @@ async def startup_event():
     else:
         print("Using in-memory vector database")
     print(f"Ollama base URL: {config.ollama_base_url}")
+    # 启动会话清理线程
+    start_cleanup_thread()
 
 
 @app.get("/models", summary="Get available Ollama models")
@@ -371,6 +425,9 @@ async def chat(request: ChatRequest):
 
         query_engine = conversation_history[request.conversation_id]
         response = query_engine.query(request.message)
+        
+        # 更新会话访问时间
+        conversation_timestamps[request.conversation_id] = time.time()
 
         return ChatResponse(
             response=str(response), conversation_id=request.conversation_id
@@ -382,13 +439,26 @@ async def chat(request: ChatRequest):
 @app.delete("/documents/{filename}", summary="Delete document")
 async def delete_document(filename: str):
     try:
-        file_path = os.path.join(UPLOAD_DIR, filename or "")
+        # 验证文件名安全性
+        if not validate_filename(filename):
+            raise HTTPException(status_code=400, detail="Invalid filename")
+        
+        file_path = os.path.join(UPLOAD_DIR, filename)
+        # 确保解析后的路径仍在 UPLOAD_DIR 内
+        real_path = os.path.realpath(file_path)
+        real_upload_dir = os.path.realpath(UPLOAD_DIR)
+        if not real_path.startswith(real_upload_dir):
+            raise HTTPException(status_code=400, detail="Invalid file path")
+        
         if os.path.exists(file_path):
             os.remove(file_path)
             conversation_history.clear()
+            conversation_timestamps.clear()
             return {"message": f"File {filename} deleted"}
         else:
             raise HTTPException(status_code=404, detail="File not found")
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

@@ -15,6 +15,8 @@ data:
   USE_CHROMA: "true"
   CHROMA_HOST: "chroma"
   CHROMA_PORT: "8000"
+  # CORS 允许的域名，多个用逗号分隔，留空允许所有（生产环境建议设置具体域名）
+  ALLOWED_ORIGINS: ""
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -40,9 +42,17 @@ spec:
       labels:
         app: chroma
     spec:
-      nodeSelector:
-        kubernetes.io/hostname: "raspberrypi"
-        kubernetes.io/os: "linux"
+      # 使用软亲和性替代硬节点选择器，优先调度到指定节点但不强制
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            preference:
+              matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values:
+                - "raspberrypi"
       containers:
       - name: chroma
         image: chromadb/chroma:latest
@@ -92,6 +102,18 @@ spec:
     requests:
       storage: 10Gi
 ---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: uploads-pvc
+  namespace: doc-chat-system
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -107,9 +129,17 @@ spec:
       labels:
         app: doc-chat
     spec:
-      nodeSelector:
-        kubernetes.io/hostname: "ubuntu"
-        kubernetes.io/os: "linux"
+      # 使用软亲和性替代硬节点选择器，优先调度到指定节点但不强制
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            preference:
+              matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values:
+                - "ubuntu"
       containers:
       - name: doc-chat
         image: doc-chat:latest
@@ -131,7 +161,8 @@ spec:
             cpu: "2000m"
       volumes:
       - name: uploads-volume
-        emptyDir: {}
+        persistentVolumeClaim:
+          claimName: uploads-pvc
 ---
 apiVersion: v1
 kind: Service

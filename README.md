@@ -99,6 +99,7 @@ GET /health
 | USE_CHROMA | Enable Chroma vector store | true |
 | CHROMA_HOST | Chroma server host | chroma |
 | CHROMA_PORT | Chroma server port | 8000 |
+| ALLOWED_ORIGINS | CORS allowed origins (comma-separated) | "" (all origins if empty) |
 
 ## Architecture
 
@@ -128,9 +129,24 @@ GET /health
 └─────────────────────────────────────────────────┘
 ```
 
+## Security Improvements
+
+### 1. CORS Configuration
+- Added `ALLOWED_ORIGINS` environment variable for CORS control
+- Default allows all origins (`*`), production should set specific domains
+
+### 2. File Upload Security
+- Filename validation prevents path traversal attacks
+- File paths are validated to ensure they stay within the uploads directory
+
+### 3. Session Management
+- Automatic cleanup of expired conversations (24h timeout)
+- Hourly cleanup thread removes stale sessions to prevent memory leaks
+
 ## Notes
 1. Ollama service is external - ensure http://10.0.0.55:11434 is accessible
 2. Document embeddings are persisted to Chroma PVC (10GB)
-3. Uploaded files are stored in temporary volume
+3. **Uploaded files are now persisted to PVC (5GB)** - no longer lost on Pod restart
 4. Chroma requires at least 512MB memory
 5. Application requires at least 2GB memory
+6. **Node scheduling uses soft affinity** - prefers raspberrypi/ubuntu but can run on any node
