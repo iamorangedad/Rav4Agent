@@ -7,6 +7,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
 COPY backend/ .
+COPY frontend/index.html ./static/
 
 RUN mkdir -p uploads
 

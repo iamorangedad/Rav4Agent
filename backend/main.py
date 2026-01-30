@@ -1,5 +1,7 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import List, Optional
 import os
@@ -48,6 +50,20 @@ UPLOAD_DIR = "uploads"
 CHROMA_DIR = "chroma_db"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(CHROMA_DIR, exist_ok=True)
+
+# Mount static files for frontend
+STATIC_DIR = "static"
+os.makedirs(STATIC_DIR, exist_ok=True)
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+@app.get("/")
+async def serve_index():
+    """Serve the main frontend page"""
+    index_path = os.path.join(STATIC_DIR, "index.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+    # Fallback: return API info if frontend not built yet
+    return {"message": "Doc-Chat API", "docs": "/docs", "health": "/health"}
 
 def create_ollama_embedding(model_name: str, base_url: str):
     """Create OllamaEmbedding with automatic parameter compatibility handling"""
