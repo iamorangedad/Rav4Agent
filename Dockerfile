@@ -12,4 +12,4 @@ RUN mkdir -p uploads
 
 EXPOSE 8000
 
-CMD ["python", "startup.py"]
+CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

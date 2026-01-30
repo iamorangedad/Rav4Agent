@@ -129,6 +129,19 @@ GET /health
 └─────────────────────────────────────────────────┘
 ```
 
+## Startup Process
+
+应用直接使用 Uvicorn 启动，无需额外的 startup.py：
+
+```bash
+# Docker 容器内
+python -m uvicorn main:app --host 0.0.0.0 --port 8000
+```
+
+### OllamaEmbedding 兼容性
+
+代码内置了 `create_ollama_embedding()` 辅助函数，自动处理不同版本的参数兼容（`model` vs `model_name`），无需猴子补丁。
+
 ## Security Improvements
 
 ### 1. CORS Configuration
