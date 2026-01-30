@@ -98,7 +98,7 @@ class ChatService:
         llm_model = model_name or settings.default_model_name
         embed_model = embedding_model or settings.default_embedding_model
         
-        # Set up LLM and embedding
+        # Set up LLM
         logger.info(f"[Chat] Setting up LLM: {llm_model}")
         try:
             Settings.llm = self.model_service.get_provider().get_llm(llm_model)
@@ -107,9 +107,10 @@ class ChatService:
             logger.error(f"[Chat] Failed to setup LLM: {e}")
             raise
         
+        # Get embedding model (don't set to Settings - pass directly to index)
         logger.info(f"[Chat] Setting up embedding model: {embed_model}")
         try:
-            Settings.embed_model = self.model_service.get_provider().get_embedding_model(embed_model)
+            embed_model_instance = self.model_service.get_provider().get_embedding_model(embed_model)
             logger.info("[Chat] Embedding model setup complete")
         except Exception as e:
             logger.error(f"[Chat] Failed to setup embedding model: {e}")
@@ -121,11 +122,12 @@ class ChatService:
         documents = SimpleDirectoryReader(self.upload_dir).load_data()
         logger.info(f"[Chat] Loaded {len(documents)} documents")
         
-        # Create index with vector store
+        # Create index with vector store and explicit embed model
         vector_store = self.vector_store_provider.get_vector_store()
         index = VectorStoreIndex.from_documents(
             documents,
             vector_store=vector_store,
+            embed_model=embed_model_instance,
             show_progress=True
         )
         
