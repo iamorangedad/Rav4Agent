@@ -58,6 +58,10 @@ spec:
         image: chromadb/chroma:latest
         ports:
         - containerPort: 8000
+        env:
+        # 覆盖 Kubernetes 自动注入的 CHROMA_PORT（默认是 tcp://IP:PORT 格式）
+        - name: CHROMA_PORT
+          value: "8000"
         envFrom:
         - configMapRef:
             name: chroma-config
