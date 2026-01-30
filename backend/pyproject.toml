@@ -1,0 +1,163 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "smart-document-assistant"
+version = "1.0.0"
+description = "Document chat system with LlamaIndex and Ollama integration"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.9"
+authors = [
+    {name = "Development Team"}
+]
+keywords = ["llm", "rag", "documents", "chat", "ollama", "llamaindex"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn>=0.32.0",
+    "python-multipart>=0.0.12",
+    "llama-index>=0.11.0",
+    "llama-index-llms-ollama>=0.3.0",
+    "llama-index-embeddings-ollama>=0.3.0",
+    "llama-index-vector-stores-chroma>=0.2.0",
+    "chromadb>=0.5.0",
+    "pydantic>=2.9.0",
+    "pydantic-settings>=2.0.0",
+    "httpx>=0.24.0",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.1.0",
+    "pytest-mock>=3.11.0",
+    "factory-boy>=3.3.0",
+    "freezegun>=1.2.0",
+    "responses>=0.23.0",
+]
+dev = [
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.5.0",
+    "pre-commit>=3.4.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/yourusername/smart-document-assistant"
+Documentation = "https://github.com/yourusername/smart-document-assistant#readme"
+Repository = "https://github.com/yourusername/smart-document-assistant"
+
+[tool.uv]
+# uv specific configuration
+python-preference = "only-managed"
+
+[tool.pytest.ini_options]
+# Pytest configuration embedded in pyproject.toml
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-v --tb=short --strict-markers --disable-warnings --color=yes"
+asyncio_mode = "auto"
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+    "vector: marks tests related to vector operations",
+    "document: marks tests related to document processing",
+    "embedding: marks tests related to embeddings",
+    "storage: marks tests related to vector storage",
+    "retrieval: marks tests related to vector retrieval",
+    "prompt: marks tests related to prompt generation",
+]
+
+[tool.black]
+line-length = 100
+target-version = ['py38', 'py39', 'py310', 'py311']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.ruff]
+line-length = 100
+target-version = "py38"
+select = [
+    "E",  # pycodestyle errors
+    "F",  # Pyflakes
+    "I",  # isort
+    "N",  # pep8-naming
+    "W",  # pycodestyle warnings
+]
+ignore = [
+    "E501",  # line too long, handled by black
+]
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = true
+disallow_untyped_decorators = false
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = [
+    "llama_index.*",
+    "chromadb.*",
+    "ollama.*",
+]
+follow_untyped_imports = true
+
+[tool.coverage.run]
+source = ["app"]
+omit = [
+    "*/tests/*",
+    "*/test_*",
+    "*/conftest.py",
+]
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = false
+fail_under = 80
+
+[tool.coverage.html]
+directory = "htmlcov"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
