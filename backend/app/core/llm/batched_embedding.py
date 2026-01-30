@@ -75,21 +75,34 @@ class BatchedOllamaEmbedding(BaseEmbedding):
         Get embeddings for multiple texts with batching.
         
         Process in smaller batches to avoid overwhelming Ollama.
+        Truncate long texts to prevent memory issues.
         """
         if not texts:
             return []
         
+        # Truncate texts to max 8000 characters to prevent Ollama overload
+        max_length = 8000
+        truncated_texts = []
+        for text in texts:
+            if len(text) > max_length:
+                truncated_texts.append(text[:max_length] + "...")
+                logger.warning(f"[Embedding] Truncated text from {len(text)} to {max_length} chars")
+            else:
+                truncated_texts.append(text)
+        
         all_embeddings = []
-        total = len(texts)
+        total = len(truncated_texts)
         
         logger.info(f"[Embedding] Processing {total} texts in batches of {self._batch_size}")
         
         for i in range(0, total, self._batch_size):
-            batch = texts[i:i + self._batch_size]
+            batch = truncated_texts[i:i + self._batch_size]
             batch_num = i // self._batch_size + 1
             total_batches = (total + self._batch_size - 1) // self._batch_size
             
-            logger.info(f"[Embedding] Processing batch {batch_num}/{total_batches} ({len(batch)} texts)")
+            # Log batch details
+            total_chars = sum(len(t) for t in batch)
+            logger.info(f"[Embedding] Processing batch {batch_num}/{total_batches} ({len(batch)} texts, {total_chars} total chars)")
             
             # Retry logic for each batch
             for attempt in range(self._max_retries):
@@ -97,16 +110,19 @@ class BatchedOllamaEmbedding(BaseEmbedding):
                     batch_embeddings = self._embed_model._get_text_embeddings(batch)
                     all_embeddings.extend(batch_embeddings)
                     
-                    # Small delay between batches to not overwhelm Ollama
+                    # Longer delay between batches to let Ollama recover
                     if i + self._batch_size < total:
-                        time.sleep(0.5)
+                        logger.info(f"[Embedding] Waiting {self._retry_delay}s before next batch...")
+                        time.sleep(self._retry_delay)
                     
                     break
                 except Exception as e:
                     logger.error(f"[Embedding] Batch {batch_num} failed (attempt {attempt + 1}/{self._max_retries}): {e}")
                     
                     if attempt < self._max_retries - 1:
-                        time.sleep(self._retry_delay * (attempt + 1))
+                        wait_time = self._retry_delay * (attempt + 1)
+                        logger.info(f"[Embedding] Waiting {wait_time}s before retry...")
+                        time.sleep(wait_time)
                     else:
                         logger.error(f"[Embedding] Batch {batch_num} failed after {self._max_retries} attempts")
                         raise

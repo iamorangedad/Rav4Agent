@@ -54,12 +54,13 @@ class OllamaProvider(LLMProvider):
         
         # Use batched embedding to handle large documents
         from app.core.llm.batched_embedding import BatchedOllamaEmbedding
+        # Use smaller batch size (5) and longer delays to prevent Ollama overload
         return BatchedOllamaEmbedding(
             model_name=model,
             base_url=self.base_url,
-            batch_size=batch_size,
-            max_retries=3,
-            retry_delay=1.0
+            batch_size=5,
+            max_retries=5,
+            retry_delay=2.0
         )
     
     def check_model_exists(self, model_name: str) -> bool:
