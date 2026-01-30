@@ -1,15 +1,17 @@
 """Batched embedding model with retry logic for large documents."""
 import logging
 import time
-from typing import List, Optional
-from llama_index.core.embeddings import BaseEmbedding
-from llama_index.embeddings.ollama import OllamaEmbedding
+from typing import List, Optional, Any
 
 logger = logging.getLogger(__name__)
 
 
-class BatchedOllamaEmbedding(BaseEmbedding):
-    """Ollama embedding with batching and retry for large documents."""
+class BatchedOllamaEmbedding:
+    """Wrapper for Ollama embedding with batching and retry for large documents.
+    
+    This is NOT a subclass of BaseEmbedding - it's a wrapper that delegates
+to an underlying OllamaEmbedding while adding batching logic.
+    """
     
     def __init__(
         self,
@@ -30,12 +32,11 @@ class BatchedOllamaEmbedding(BaseEmbedding):
             max_retries: Maximum retry attempts
             retry_delay: Delay between retries in seconds
         """
-        self._model_name = model_name
-        self._base_url = base_url
+        from llama_index.embeddings.ollama import OllamaEmbedding
+        
         self._batch_size = batch_size
         self._max_retries = max_retries
         self._retry_delay = retry_delay
-        self._kwargs = kwargs
         
         # Create underlying embedding model
         try:
@@ -52,13 +53,25 @@ class BatchedOllamaEmbedding(BaseEmbedding):
                 **kwargs
             )
     
-    def _get_query_embedding(self, query: str) -> List[float]:
+    def __getattr__(self, name: str) -> Any:
+        """Delegate all other attributes to the underlying embed model."""
+        return getattr(self._embed_model, name)
+    
+    def get_query_embedding(self, query: str) -> List[float]:
         """Get embedding for a query."""
         return self._embed_model.get_query_embedding(query)
     
-    def _get_text_embedding(self, text: str) -> List[float]:
+    def get_text_embedding(self, text: str) -> List[float]:
         """Get embedding for a text."""
         return self._embed_model.get_text_embedding(text)
+    
+    def _get_query_embedding(self, query: str) -> List[float]:
+        """Private method for query embedding."""
+        return self._embed_model._get_query_embedding(query)
+    
+    def _get_text_embedding(self, text: str) -> List[float]:
+        """Private method for text embedding."""
+        return self._embed_model._get_text_embedding(text)
     
     def _get_text_embeddings(self, texts: List[str]) -> List[List[float]]:
         """
@@ -106,11 +119,11 @@ class BatchedOllamaEmbedding(BaseEmbedding):
     
     async def _aget_query_embedding(self, query: str) -> List[float]:
         """Async get embedding for a query."""
-        return self._embed_model._aget_query_embedding(query)
+        return await self._embed_model._aget_query_embedding(query)
     
     async def _aget_text_embedding(self, text: str) -> List[float]:
         """Async get embedding for a text."""
-        return self._embed_model._aget_text_embedding(text)
+        return await self._embed_model._aget_text_embedding(text)
     
     async def _aget_text_embeddings(self, texts: List[str]) -> List[List[float]]:
         """Async get embeddings with batching."""
