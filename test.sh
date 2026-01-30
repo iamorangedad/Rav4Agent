@@ -17,12 +17,32 @@ echo ""
 cd "$(dirname "$0")/backend"
 
 # Function to check if uv is installed
+# Also checks common installation locations if not in PATH
 check_uv() {
-    if ! command -v uv &> /dev/null; then
-        echo -e "${RED}❌ uv is not installed${NC}"
-        echo "Install uv: curl -LsSf https://astral.sh/uv/install.sh | sh"
-        exit 1
+    if command -v uv &> /dev/null; then
+        return 0
     fi
+    
+    # Check common installation locations
+    UV_PATHS=(
+        "$HOME/.local/bin/uv"
+        "$HOME/.cargo/bin/uv"
+        "/usr/local/bin/uv"
+        "/usr/bin/uv"
+    )
+    
+    for uv_path in "${UV_PATHS[@]}"; do
+        if [ -x "$uv_path" ]; then
+            export PATH="$(dirname "$uv_path"):$PATH"
+            echo -e "${GREEN}✅ Found uv at $uv_path${NC}"
+            return 0
+        fi
+    done
+    
+    echo -e "${RED}❌ uv is not installed${NC}"
+    echo "Install uv: curl -LsSf https://astral.sh/uv/install.sh | sh"
+    echo "Or add ~/.local/bin to your PATH: export PATH=\"\$HOME/.local/bin:\$PATH\""
+    exit 1
 }
 
 # Function to setup test environment
