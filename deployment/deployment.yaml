@@ -9,13 +9,33 @@ metadata:
   name: doc-chat-config
   namespace: doc-chat-system
 data:
+  # Ollama Configuration
   OLLAMA_BASE_URL: "http://10.0.0.55:11434"
   MODEL_NAME: "llama3.2"
   EMBEDDING_MODEL: "nomic-embed-text"
+  
+  # Vector Store Configuration
+  # Options: simple (in-memory), chroma (persistent)
+  VECTOR_STORE_TYPE: "chroma"
+  # Legacy support: if USE_CHROMA=true, overrides VECTOR_STORE_TYPE to "chroma"
   USE_CHROMA: "true"
   CHROMA_HOST: "chroma"
   CHROMA_PORT: "8000"
-  # CORS 允许的域名，多个用逗号分隔，留空允许所有（生产环境建议设置具体域名）
+  CHROMA_COLLECTION: "documents"
+  
+  # Storage Paths
+  UPLOAD_DIR: "/app/uploads"
+  CHROMA_DIR: "/app/chroma_db"
+  STATIC_DIR: "/app/static"
+  
+  # Application Settings
+  APP_NAME: "Document Chat API"
+  APP_VERSION: "1.0.0"
+  DEBUG: "false"
+  
+  # CORS Configuration
+  # Multiple origins: "http://localhost:3000,https://example.com"
+  # Empty string allows all origins (not recommended for production)
   ALLOWED_ORIGINS: ""
 ---
 apiVersion: v1
