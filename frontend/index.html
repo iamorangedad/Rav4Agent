@@ -581,6 +581,91 @@
             color: #721c24;
         }
         
+        .vector-kb-status {
+            background: #f8f9ff;
+            border-radius: 8px;
+            padding: 10px;
+            margin-top: 10px;
+        }
+        
+        .vector-kb-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .vector-kb-stats {
+            font-size: 0.7rem;
+            color: #666;
+        }
+        
+        .vector-kb-list {
+            max-height: 150px;
+            overflow-y: auto;
+        }
+        
+        .vector-kb-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 6px 8px;
+            background: white;
+            border-radius: 4px;
+            margin-bottom: 4px;
+            font-size: 0.75rem;
+        }
+        
+        .vector-kb-item:last-child {
+            margin-bottom: 0;
+        }
+        
+        .vector-kb-item .filename {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            margin-right: 6px;
+        }
+        
+        .vector-kb-item .status-icon {
+            font-size: 0.9rem;
+        }
+        
+        .vector-kb-item .status-icon.ready {
+            color: #27ae60;
+        }
+        
+        .vector-kb-item .status-icon.processing {
+            color: #3498db;
+        }
+        
+        .vector-kb-item .status-icon.pending {
+            color: #f39c12;
+        }
+        
+        .vector-kb-item .status-icon.failed {
+            color: #e74c3c;
+        }
+        
+        .vector-kb-progress {
+            width: 40px;
+            height: 4px;
+            background: #eee;
+            border-radius: 2px;
+            overflow: hidden;
+            margin-left: 6px;
+        }
+        
+        .vector-kb-progress-bar {
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 2px;
+            transition: width 0.3s ease;
+        }
+        
         @keyframes pulse {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.6; }
@@ -664,6 +749,24 @@
                     </div>
                     <button class="refresh-btn" onclick="loadProcessingStatus()" style="margin-top: 10px;">
                         🔄 Refresh Status
+                    </button>
+                </div>
+                
+                <div class="sidebar-section">
+                    <h2>🗄️ Vector Knowledge Base</h2>
+                    <div id="vectorKBStatus" class="vector-kb-status">
+                        <div class="vector-kb-header">
+                            <span style="font-size: 0.8rem; font-weight: 600;">Document Index Status</span>
+                            <span id="vectorKBStats" class="vector-kb-stats">0/0 ready</span>
+                        </div>
+                        <div id="vectorKBList" class="vector-kb-list">
+                            <div style="padding: 10px; color: #888; font-size: 0.75rem; text-align: center;">
+                                No documents uploaded
+                            </div>
+                        </div>
+                    </div>
+                    <button class="refresh-btn" onclick="loadVectorKBStatus()" style="margin-top: 10px;">
+                        🔄 Refresh Index Status
                     </button>
                 </div>
             </aside>
@@ -906,6 +1009,7 @@
                         console.log('Upload successful:', data.message);
                         loadDocuments();
                         loadProcessingStatus();
+                        loadVectorKBStatus();
                     } else {
                         const error = await response.text();
                         console.error('Upload failed:', error);
@@ -985,6 +1089,55 @@
         // Auto-refresh processing status every 3 seconds
         setInterval(loadProcessingStatus, 3000);
         
+        async function loadVectorKBStatus() {
+            try {
+                const response = await fetch(`${API_BASE}/documents/vector-status`);
+                const data = await response.json();
+                
+                const vectorKBList = document.getElementById('vectorKBList');
+                const vectorKBStats = document.getElementById('vectorKBStats');
+                
+                // Update stats header
+                vectorKBStats.textContent = `${data.indexed_documents}/${data.total_documents} ready`;
+                
+                if (data.documents && data.documents.length > 0) {
+                    vectorKBList.innerHTML = data.documents.map(doc => {
+                        const statusIcons = {
+                            'completed': { icon: '✓', class: 'ready', tooltip: 'Ready for chat' },
+                            'processing': { icon: '⏳', class: 'processing', tooltip: 'Indexing...' },
+                            'pending': { icon: '⏸', class: 'pending', tooltip: 'Pending' },
+                            'failed': { icon: '✗', class: 'failed', tooltip: 'Failed' },
+                            'none': { icon: '○', class: 'pending', tooltip: 'Not indexed' }
+                        };
+                        const status = statusIcons[doc.indexing_status] || statusIcons['none'];
+                        
+                        const filename = doc.filename.length > 18 
+                            ? doc.filename.substring(0, 15) + '...' 
+                            : doc.filename;
+                        
+                        return `
+                            <div class="vector-kb-item" title="${doc.filename}: ${doc.message}">
+                                <span class="filename">📄 ${filename}</span>
+                                <span class="status-icon ${status.class}" title="${status.tooltip}">${status.icon}</span>
+                                ${doc.indexing_status === 'processing' ? `
+                                    <div class="vector-kb-progress" title="${doc.progress}%">
+                                        <div class="vector-kb-progress-bar" style="width: ${doc.progress}%"></div>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        `;
+                    }).join('');
+                } else {
+                    vectorKBList.innerHTML = '<div style="padding: 10px; color: #888; font-size: 0.75rem; text-align: center;">No documents uploaded</div>';
+                }
+            } catch (error) {
+                console.error('Failed to load vector KB status:', error);
+            }
+        }
+        
+        // Auto-refresh vector KB status every 5 seconds
+        setInterval(loadVectorKBStatus, 5000);
+        
         async function deleteDocument(filename) {
             try {
                 const response = await fetch(`${API_BASE}/documents/${filename}`, {
@@ -994,10 +1147,11 @@
                 if (response.ok) {
                     conversationId = null;
                     loadDocuments();
+                    loadVectorKBStatus();
                 }
-                } catch (error) {
-                    console.error('Failed to delete document:', error);
-                }
+            } catch (error) {
+                console.error('Failed to delete document:', error);
+            }
         }
         
         messageInput.addEventListener('input', function() {
@@ -1094,6 +1248,7 @@
         loadModels();
         loadDocuments();
         loadProcessingStatus();
+        loadVectorKBStatus();
         
         setInterval(checkHealth, 30000);
     </script>

@@ -115,3 +115,24 @@ class ProcessingStatusResponse(BaseModel):
     pending_count: int = Field(..., description="Number of pending tasks")
     processing_count: int = Field(..., description="Number of processing tasks")
     tasks: List[IndexingTaskResponse] = Field(..., description="Recent tasks")
+
+
+class DocumentVectorStatus(BaseModel):
+    """Vector database status for a single document."""
+    filename: str = Field(..., description="Document filename")
+    is_uploaded: bool = Field(..., description="Whether file is uploaded")
+    is_indexed: bool = Field(..., description="Whether file is indexed in vector store")
+    indexing_status: str = Field(..., description="Indexing status: pending/processing/completed/failed/none")
+    progress: int = Field(..., description="Progress percentage (0-100), 0 if not indexed")
+    chunk_count: int = Field(..., description="Number of chunks/segments created, 0 if not indexed")
+    message: str = Field(..., description="Status message")
+
+
+class VectorKnowledgeBaseStatusResponse(BaseModel):
+    """Response for vector knowledge base status."""
+    total_documents: int = Field(..., description="Total number of uploaded documents")
+    indexed_documents: int = Field(..., description="Number of documents fully indexed")
+    processing_documents: int = Field(..., description="Number of documents being processed")
+    pending_documents: int = Field(..., description="Number of documents pending indexing")
+    failed_documents: int = Field(..., description="Number of documents failed indexing")
+    documents: List[DocumentVectorStatus] = Field(..., description="List of all document statuses")
