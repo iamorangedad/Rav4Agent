@@ -10,6 +10,8 @@ import httpx
 import re
 import time
 import threading
+import logging
+import traceback
 from llama_index.core import VectorStoreIndex, SimpleDirectoryReader, Settings
 from llama_index.llms.ollama import Ollama
 from llama_index.embeddings.ollama import OllamaEmbedding
@@ -17,6 +19,13 @@ from llama_index.core.storage.docstore import SimpleDocumentStore
 from llama_index.core.storage.index_store import SimpleIndexStore
 from llama_index.core.vector_stores import SimpleVectorStore
 import shutil
+
+# 配置日志
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 
 class AppConfig:
@@ -302,11 +311,25 @@ def get_default_models():
 
 @app.on_event("startup")
 async def startup_event():
+    logger.info("=" * 50)
+    logger.info("[Startup] Doc-Chat API starting...")
+    logger.info(f"[Startup] Ollama base URL: {config.ollama_base_url}")
+    logger.info(f"[Startup] Default model: {config.default_model_name}")
+    logger.info(f"[Startup] Embedding model: {config.default_embedding_model}")
+    logger.info(f"[Startup] Vector store: {'chroma' if config.use_chroma else 'in-memory'}")
     if config.use_chroma:
-        print(f"Using Chroma vector database at {config.chroma_host}:{config.chroma_port}")
-    else:
-        print("Using in-memory vector database")
-    print(f"Ollama base URL: {config.ollama_base_url}")
+        logger.info(f"[Startup] Chroma host: {config.chroma_host}:{config.chroma_port}")
+    logger.info(f"[Startup] Upload directory: {UPLOAD_DIR}")
+    logger.info(f"[Startup] Static directory: {STATIC_DIR}")
+    logger.info("=" * 50)
+    
+    # 测试 Ollama 连接
+    try:
+        models = get_ollama_models()
+        logger.info(f"[Startup] Successfully connected to Ollama, found {len(models)} models")
+    except Exception as e:
+        logger.warning(f"[Startup] Could not connect to Ollama: {e}")
+    
     # 启动会话清理线程
     start_cleanup_thread()
 
@@ -367,16 +390,31 @@ async def get_recommended_models():
 
 @app.post("/upload", summary="Upload document")
 async def upload_document(file: UploadFile = File(...)):
+    logger.info(f"[Upload] Uploading file: {file.filename}")
     try:
+        # 验证文件名
+        if not validate_filename(file.filename):
+            logger.warning(f"[Upload] Invalid filename rejected: {file.filename}")
+            raise HTTPException(status_code=400, detail="Invalid filename")
+        
         file_path = os.path.join(UPLOAD_DIR, file.filename)
+        file_size = 0
+        
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
+            file_size = os.path.getsize(file_path)
 
+        logger.info(f"[Upload] File saved: {file.filename} ({file_size} bytes)")
         return {
             "message": f"File {file.filename} uploaded successfully",
             "filename": file.filename,
+            "size": file_size,
         }
+    except HTTPException:
+        raise
     except Exception as e:
+        logger.error(f"[Upload] Error uploading {file.filename}: {str(e)}")
+        logger.error(f"[Upload] Stack trace: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -391,61 +429,106 @@ async def get_documents():
 
 @app.post("/chat", response_model=ChatResponse, summary="Send chat message")
 async def chat(request: ChatRequest):
+    start_time = time.time()
+    conv_id = request.conversation_id or str(uuid.uuid4())
+    
+    logger.info(f"[Chat] New request - conv_id: {conv_id}, model: {request.model or config.default_model_name}")
+    
     try:
-        if not request.conversation_id:
-            request.conversation_id = str(uuid.uuid4())
-
         documents_dir = UPLOAD_DIR
         if not os.path.exists(documents_dir) or not os.listdir(documents_dir):
+            logger.warning(f"[Chat] No documents uploaded for conv_id: {conv_id}")
             return ChatResponse(
                 response="Please upload documents first, then I can answer your questions.",
-                conversation_id=request.conversation_id,
+                conversation_id=conv_id,
             )
 
-        if request.conversation_id not in conversation_history:
+        # 检查是否需要创建新的索引（首次请求或模型变更）
+        if conv_id not in conversation_history:
+            logger.info(f"[Chat] Creating new index for conv_id: {conv_id}")
+            index_start = time.time()
+            
             try:
                 model_name = request.model or config.default_model_name
                 embed_model_name = request.embedding_model or config.default_embedding_model
+                
+                logger.info(f"[Chat] Using model: {model_name}, embedding: {embed_model_name}")
+                logger.info(f"[Chat] Ollama URL: {config.ollama_base_url}")
 
+                # 设置 LLM
+                llm_start = time.time()
                 Settings.llm = Ollama(model=model_name, base_url=config.ollama_base_url)
+                logger.info(f"[Chat] LLM initialized in {time.time() - llm_start:.2f}s")
+                
+                # 设置 Embedding
+                embed_start = time.time()
                 Settings.embed_model = create_ollama_embedding(
                     embed_model_name, config.ollama_base_url
                 )
+                logger.info(f"[Chat] Embedding model initialized in {time.time() - embed_start:.2f}s")
 
+                # 获取存储组件
                 vector_store = get_vector_store(CHROMA_DIR)
                 docstore = get_docstore()
                 index_store = get_index_store()
+                logger.info(f"[Chat] Storage components ready")
 
-                storage_context = {
-                    "vector_store": vector_store,
-                    "docstore": docstore,
-                    "index_store": index_store,
-                }
-
+                # 加载文档
+                load_start = time.time()
                 documents = SimpleDirectoryReader(documents_dir).load_data()
+                logger.info(f"[Chat] Loaded {len(documents)} documents in {time.time() - load_start:.2f}s")
+
+                # 创建索引（这是最耗时的步骤）
+                index_create_start = time.time()
+                logger.info(f"[Chat] Starting index creation...")
                 index = VectorStoreIndex.from_documents(
                     documents,
-                    storage_context=storage_context,
                     show_progress=True,
                 )
-                conversation_history[request.conversation_id] = index.as_query_engine()
+                index_time = time.time() - index_create_start
+                logger.info(f"[Chat] Index created in {index_time:.2f}s")
+
+                # 创建查询引擎
+                query_engine_start = time.time()
+                conversation_history[conv_id] = index.as_query_engine()
+                logger.info(f"[Chat] Query engine created in {time.time() - query_engine_start:.2f}s")
+                
+                total_index_time = time.time() - index_start
+                logger.info(f"[Chat] Total index setup time: {total_index_time:.2f}s")
+                
             except Exception as e:
+                error_msg = f"Error loading documents: {str(e)}"
+                logger.error(f"[Chat] {error_msg}")
+                logger.error(f"[Chat] Stack trace: {traceback.format_exc()}")
                 return ChatResponse(
-                    response=f"Error loading documents: {str(e)}",
-                    conversation_id=request.conversation_id,
+                    response=error_msg,
+                    conversation_id=conv_id,
                 )
 
-        query_engine = conversation_history[request.conversation_id]
+        # 执行查询
+        query_start = time.time()
+        logger.info(f"[Chat] Executing query: {request.message[:50]}...")
+        
+        query_engine = conversation_history[conv_id]
         response = query_engine.query(request.message)
+        query_time = time.time() - query_start
+        
+        logger.info(f"[Chat] Query completed in {query_time:.2f}s")
         
         # 更新会话访问时间
-        conversation_timestamps[request.conversation_id] = time.time()
+        conversation_timestamps[conv_id] = time.time()
+        
+        total_time = time.time() - start_time
+        logger.info(f"[Chat] Total request time: {total_time:.2f}s - conv_id: {conv_id}")
 
         return ChatResponse(
-            response=str(response), conversation_id=request.conversation_id
+            response=str(response), conversation_id=conv_id
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        error_msg = f"Chat error: {str(e)}"
+        logger.error(f"[Chat] {error_msg}")
+        logger.error(f"[Chat] Stack trace: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=error_msg)
 
 
 @app.delete("/documents/{filename}", summary="Delete document")
@@ -477,10 +560,12 @@ async def delete_document(filename: str):
 
 @app.get("/health", summary="Health check")
 async def health_check():
+    logger.debug("[Health] Health check requested")
     return {
         "status": "healthy",
         "vector_store": "chroma" if config.use_chroma else "in-memory",
         "ollama_url": config.ollama_base_url,
+        "documents_count": len(os.listdir(UPLOAD_DIR)) if os.path.exists(UPLOAD_DIR) else 0,
     }
 
 
