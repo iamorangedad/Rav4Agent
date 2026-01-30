@@ -1,10 +1,6 @@
 """ChromaDB vector store implementation."""
 import logging
-from typing import Optional
-
-from llama_index.core.vector_stores import SimpleVectorStore
-from llama_index.core.storage.docstore import SimpleDocumentStore
-from llama_index.core.storage.index_store import SimpleIndexStore
+from typing import Optional, Any
 
 from app.core.vector_store.base import VectorStoreProvider, register_vector_store
 
@@ -46,7 +42,7 @@ class ChromaVectorStoreProvider(VectorStoreProvider):
             self._client = chromadb.HttpClient(host=self.host, port=self.port)
         return self._client
     
-    def get_vector_store(self):
+    def get_vector_store(self) -> Any:
         """Get ChromaDB vector store instance."""
         if self._vector_store is None:
             try:
@@ -57,18 +53,21 @@ class ChromaVectorStoreProvider(VectorStoreProvider):
             except Exception as e:
                 logger.error(f"Failed to connect to ChromaDB: {e}")
                 logger.info("Falling back to simple vector store")
+                from llama_index.core.vector_stores import SimpleVectorStore
                 self._vector_store = SimpleVectorStore()
         return self._vector_store
     
-    def get_docstore(self) -> SimpleDocumentStore:
+    def get_docstore(self) -> Any:
         """Get document store instance."""
         if self._docstore is None:
+            from llama_index.core.storage.docstore import SimpleDocumentStore
             self._docstore = SimpleDocumentStore()
         return self._docstore
     
-    def get_index_store(self) -> SimpleIndexStore:
+    def get_index_store(self) -> Any:
         """Get index store instance."""
         if self._index_store is None:
+            from llama_index.core.storage.index_store import SimpleIndexStore
             self._index_store = SimpleIndexStore()
         return self._index_store
     

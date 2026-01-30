@@ -1,9 +1,6 @@
 """Simple in-memory vector store implementation."""
-from typing import Optional
+from typing import Optional, Any
 import os
-from llama_index.core.vector_stores import SimpleVectorStore
-from llama_index.core.storage.docstore import SimpleDocumentStore
-from llama_index.core.storage.index_store import SimpleIndexStore
 
 from app.core.vector_store.base import VectorStoreProvider, register_vector_store
 
@@ -26,21 +23,24 @@ class SimpleVectorStoreProvider(VectorStoreProvider):
         if persist_dir:
             os.makedirs(persist_dir, exist_ok=True)
     
-    def get_vector_store(self) -> SimpleVectorStore:
+    def get_vector_store(self) -> Any:
         """Get simple vector store instance."""
         if self._vector_store is None:
+            from llama_index.core.vector_stores import SimpleVectorStore
             self._vector_store = SimpleVectorStore()
         return self._vector_store
     
-    def get_docstore(self) -> SimpleDocumentStore:
+    def get_docstore(self) -> Any:
         """Get simple document store instance."""
         if self._docstore is None:
+            from llama_index.core.storage.docstore import SimpleDocumentStore
             self._docstore = SimpleDocumentStore()
         return self._docstore
     
-    def get_index_store(self) -> SimpleIndexStore:
+    def get_index_store(self) -> Any:
         """Get simple index store instance."""
         if self._index_store is None:
+            from llama_index.core.storage.index_store import SimpleIndexStore
             self._index_store = SimpleIndexStore()
         return self._index_store
     
