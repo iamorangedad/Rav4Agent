@@ -3,6 +3,7 @@ import os
 import uuid
 import time
 import logging
+import traceback
 from typing import Optional, Dict, Any
 
 from llama_index.core import VectorStoreIndex, SimpleDirectoryReader, Settings
@@ -98,8 +99,23 @@ class ChatService:
         embed_model = embedding_model or settings.default_embedding_model
         
         # Set up LLM and embedding
-        Settings.llm = self.model_service.get_provider().get_llm(llm_model)
-        Settings.embed_model = self.model_service.get_provider().get_embedding_model(embed_model)
+        logger.info(f"[Chat] Setting up LLM: {llm_model}")
+        try:
+            Settings.llm = self.model_service.get_provider().get_llm(llm_model)
+            logger.info("[Chat] LLM setup complete")
+        except Exception as e:
+            logger.error(f"[Chat] Failed to setup LLM: {e}")
+            raise
+        
+        logger.info(f"[Chat] Setting up embedding model: {embed_model}")
+        try:
+            Settings.embed_model = self.model_service.get_provider().get_embedding_model(embed_model)
+            logger.info("[Chat] Embedding model setup complete")
+        except Exception as e:
+            logger.error(f"[Chat] Failed to setup embedding model: {e}")
+            import traceback
+            logger.error(f"[Chat] Embedding traceback: {traceback.format_exc()}")
+            raise
         
         # Load documents
         documents = SimpleDirectoryReader(self.upload_dir).load_data()
@@ -170,6 +186,8 @@ class ChatService:
             
         except Exception as e:
             logger.error(f"[Chat] Error: {e}")
+            import traceback
+            logger.error(f"[Chat] Traceback: {traceback.format_exc()}")
             raise
     
     def clear_conversation(self, conversation_id: str) -> bool:
