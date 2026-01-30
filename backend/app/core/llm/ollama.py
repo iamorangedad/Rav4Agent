@@ -34,10 +34,19 @@ class OllamaProvider(LLMProvider):
         self.default_model = default_model
         self.default_embedding_model = default_embedding_model
     
-    def get_llm(self, model_name: Optional[str] = None) -> LLM:
-        """Get Ollama LLM instance."""
+    def get_llm(self, model_name: Optional[str] = None, request_timeout: float = 120.0) -> LLM:
+        """Get Ollama LLM instance with extended timeout.
+        
+        Args:
+            model_name: Model name to use
+            request_timeout: HTTP timeout in seconds (default 120s for long queries)
+        """
         model = model_name or self.default_model
-        return Ollama(model=model, base_url=self.base_url)
+        return Ollama(
+            model=model, 
+            base_url=self.base_url,
+            request_timeout=request_timeout
+        )
     
     def get_embedding_model(self, model_name: Optional[str] = None, batch_size: int = 10) -> BaseEmbedding:
         """Get Ollama embedding model instance with batching support."""

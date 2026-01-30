@@ -98,11 +98,12 @@ class ChatService:
         llm_model = model_name or settings.default_model_name
         embed_model = embedding_model or settings.default_embedding_model
         
-        # Set up LLM
+        # Set up LLM with extended timeout for long queries
         logger.info(f"[Chat] Setting up LLM: {llm_model}")
         try:
-            Settings.llm = self.model_service.get_provider().get_llm(llm_model)
-            logger.info("[Chat] LLM setup complete")
+            # Use 180s timeout for long documents and complex queries
+            Settings.llm = self.model_service.get_provider().get_llm(llm_model, request_timeout=180.0)
+            logger.info("[Chat] LLM setup complete with 180s timeout")
         except Exception as e:
             logger.error(f"[Chat] Failed to setup LLM: {e}")
             raise
