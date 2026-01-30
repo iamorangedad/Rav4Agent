@@ -39,8 +39,8 @@ class OllamaProvider(LLMProvider):
         model = model_name or self.default_model
         return Ollama(model=model, base_url=self.base_url)
     
-    def get_embedding_model(self, model_name: Optional[str] = None) -> BaseEmbedding:
-        """Get Ollama embedding model instance."""
+    def get_embedding_model(self, model_name: Optional[str] = None, batch_size: int = 10) -> BaseEmbedding:
+        """Get Ollama embedding model instance with batching support."""
         model = model_name or self.default_embedding_model
         
         # Check if model exists
@@ -52,11 +52,15 @@ class OllamaProvider(LLMProvider):
             logger.error(f"[Embedding] {error_msg}")
             raise ValueError(error_msg)
         
-        try:
-            return OllamaEmbedding(model_name=model, base_url=self.base_url)
-        except TypeError:
-            # Fallback for older versions
-            return OllamaEmbedding(model=model, base_url=self.base_url)
+        # Use batched embedding to handle large documents
+        from app.core.llm.batched_embedding import BatchedOllamaEmbedding
+        return BatchedOllamaEmbedding(
+            model_name=model,
+            base_url=self.base_url,
+            batch_size=batch_size,
+            max_retries=3,
+            retry_delay=1.0
+        )
     
     def check_model_exists(self, model_name: str) -> bool:
         """Check if a model exists in Ollama."""
