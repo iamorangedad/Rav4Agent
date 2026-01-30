@@ -1,7 +1,6 @@
 """Vector store abstract base class and factory."""
 from abc import ABC, abstractmethod
-from typing import Optional, Type
-from llama_index.core.vector_stores import VectorStore
+from typing import Optional, Type, Any
 from llama_index.core.storage.docstore import BaseDocumentStore
 from llama_index.core.storage.index_store import BaseIndexStore
 
@@ -10,7 +9,7 @@ class VectorStoreProvider(ABC):
     """Abstract base class for vector store providers."""
     
     @abstractmethod
-    def get_vector_store(self) -> VectorStore:
+    def get_vector_store(self) -> Any:
         """Get the vector store instance."""
         pass
     
