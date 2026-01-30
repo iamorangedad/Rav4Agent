@@ -3,6 +3,8 @@
 ## Overview
 A document chat system built with LlamaIndex + Ollama + Chroma, featuring a beautiful WebUI interface.
 
+![Smart Document Assistant Interface](interface.png)
+
 ## Features
 - Document upload (PDF, TXT, DOC, DOCX, MD)
 - Intelligent Q&A based on document content
