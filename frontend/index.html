@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>智能文档助手</title>
+    <title>Smart Document Assistant</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * {
@@ -533,18 +533,18 @@
 <body>
     <div class="container">
         <header>
-            <h1>🤖 智能文档助手</h1>
-            <p>上传文档，与AI进行智能对话</p>
+            <h1>🤖 Smart Document Assistant</h1>
+            <p>Upload documents and chat with AI</p>
         </header>
         
         <div class="main-content">
             <aside class="sidebar">
                 <div class="sidebar-section">
-                    <h2>⚙️ 模型设置</h2>
+                    <h2>⚙️ Model Settings</h2>
                     
-                    <h3>对话模型</h3>
+                    <h3>Chat Model</h3>
                     <select class="model-select" id="modelSelect">
-                        <option value="">加载中...</option>
+                        <option value="">Loading...</option>
                     </select>
                     
                     <div class="model-info" id="modelInfo">
@@ -552,26 +552,26 @@
                         <span id="modelGpu"></span>
                     </div>
                     
-                    <h3>嵌入模型</h3>
+                    <h3>Embedding Model</h3>
                     <select class="model-select" id="embeddingModelSelect">
-                        <option value="">加载中...</option>
+                        <option value="">Loading...</option>
                     </select>
                     
-                    <button class="refresh-btn" onclick="refreshModels()">🔄 刷新模型列表</button>
+                    <button class="refresh-btn" onclick="refreshModels()">🔄 Refresh Model List</button>
                 </div>
                 
                 <div class="sidebar-section" style="flex: 1; display: flex; flex-direction: column;">
-                    <h2>📁 文档管理</h2>
+                    <h2>📁 Document Management</h2>
                     
                     <div class="upload-zone" id="uploadZone">
                         <div class="upload-icon">📄</div>
-                        <p>拖拽文件到此处<br>或点击上传</p>
+                        <p>Drop files here<br>or click to upload</p>
                         <input type="file" id="fileInput" multiple accept=".pdf,.txt,.doc,.docx,.md" style="display: none;">
                     </div>
                     
                     <div class="document-list" id="documentList">
                         <div class="empty-state" style="padding: 20px;">
-                            <p>暂无文档</p>
+                            <p>No documents</p>
                         </div>
                     </div>
                 </div>
@@ -582,10 +582,10 @@
                     <div class="chat-header-left">
                         <div class="ai-avatar">✨</div>
                         <div class="chat-header-info">
-                            <h3>AI 助手</h3>
+                            <h3>AI Assistant</h3>
                             <p class="status-indicator" id="statusIndicator">
                                 <span class="status-dot" id="statusDot"></span>
-                                <span id="statusText">检查连接中...</span>
+                                <span id="statusText">Checking connection...</span>
                             </p>
                         </div>
                     </div>
@@ -595,14 +595,14 @@
                 <div class="chat-messages" id="chatMessages">
                     <div class="empty-state" id="emptyState">
                         <div class="empty-state-icon">💬</div>
-                        <h3>开始对话</h3>
-                        <p>上传文档后，我可以帮您分析和解答问题</p>
+                        <h3>Start Chat</h3>
+                        <p>Upload documents and I'll help analyze and answer your questions</p>
                     </div>
                 </div>
                 
                 <div class="chat-input-area">
                     <div class="chat-input-wrapper">
-                        <textarea class="chat-input" id="messageInput" placeholder="输入您的问题..." rows="1"></textarea>
+                        <textarea class="chat-input" id="messageInput" placeholder="Type your message..." rows="1"></textarea>
                     </div>
                     <button class="send-btn" id="sendBtn">➤</button>
                 </div>
@@ -611,10 +611,10 @@
     </div>
     
     <script>
-        // API 基础地址：根据访问方式自动推断
-        // - 本地开发 (localhost): http://localhost:8000
-        // - NodePort 部署: 使用当前主机名+端口 30080
-        // - Ingress/域名: 使用相对路径 ''
+        // API Base URL: Auto-detect based on deployment
+        // - Local development (localhost): http://localhost:8000
+        // - NodePort deployment: Use current hostname + port 30080
+        // - Ingress/Domain: Use relative path ''
         const API_BASE = window.API_BASE || 
             (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
                 ? 'http://localhost:8000' 
@@ -648,14 +648,14 @@
                 const response = await fetch(`${API_BASE}/health`);
                 if (response.ok) {
                     statusDot.classList.remove('error');
-                    statusText.textContent = '在线';
+                    statusText.textContent = 'Online';
                     return true;
                 }
             } catch (error) {
                 console.error('Health check failed:', error);
             }
             statusDot.classList.add('error');
-            statusText.textContent = '连接失败';
+            statusText.textContent = 'Connection Failed';
             return false;
         }
         
@@ -742,12 +742,12 @@
         }
         
         function updateModelInfo(model) {
-            modelSize.textContent = `大小: ${model.size || 'Unknown'} | 参数: ${model.parameter_size || 'Unknown'} | 量化: ${model.quantization || 'Default'}`;
+            modelSize.textContent = `Size: ${model.size || 'Unknown'} | Parameters: ${model.parameter_size || 'Unknown'} | Quantization: ${model.quantization || 'Default'}`;
             
             if (model.requires_gpu) {
-                modelGpu.innerHTML = '<span class="gpu-badge required">需要 GPU</span>';
+                modelGpu.innerHTML = '<span class="gpu-badge required">GPU Required</span>';
             } else {
-                modelGpu.innerHTML = '<span class="gpu-badge">CPU 可运行</span>';
+                modelGpu.innerHTML = '<span class="gpu-badge">CPU Compatible</span>';
             }
         }
         
@@ -769,7 +769,7 @@
         });
         
         async function refreshModels() {
-            modelSelect.innerHTML = '<option value="">加载中...</option>';
+            modelSelect.innerHTML = '<option value="">Loading...</option>';
             await loadModels();
         }
         
@@ -814,7 +814,7 @@
                         loadDocuments();
                     }
                 } catch (error) {
-                    console.error('上传失败:', error);
+                    console.error('Upload failed:', error);
                 }
             }
         }
@@ -832,10 +832,10 @@
                         </div>
                     `).join('');
                 } else {
-                    documentList.innerHTML = '<div class="empty-state" style="padding: 20px;"><p>暂无文档</p></div>';
+                    documentList.innerHTML = '<div class="empty-state" style="padding: 20px;"><p>No documents</p></div>';
                 }
             } catch (error) {
-                console.error('加载文档列表失败:', error);
+                console.error('Failed to load document list:', error);
             }
         }
         
@@ -849,9 +849,9 @@
                     conversationId = null;
                     loadDocuments();
                 }
-            } catch (error) {
-                console.error('删除文档失败:', error);
-            }
+                } catch (error) {
+                    console.error('Failed to delete document:', error);
+                }
         }
         
         messageInput.addEventListener('input', function() {
@@ -921,8 +921,8 @@
                 addMessage(data.response, 'assistant');
             } catch (error) {
                 loadingDiv.remove();
-                addMessage('抱歉，发生了一些错误。请稍后重试。', 'assistant');
-                console.error('发送消息失败:', error);
+                addMessage('Sorry, an error occurred. Please try again later.', 'assistant');
+                console.error('Failed to send message:', error);
             } finally {
                 isLoading = false;
                 sendBtn.disabled = false;
