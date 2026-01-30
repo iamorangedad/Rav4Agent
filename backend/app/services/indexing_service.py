@@ -202,112 +202,47 @@ class AsyncIndexingService:
                 task.completed_at = datetime.now()
     
     def _process_large_document(self, task: IndexingTask, file_path: str):
-        """Process large documents (>10MB) with chunked streaming approach."""
-        from llama_index.core import SimpleDirectoryReader, Document
-        from llama_index.core.node_parser import SentenceSplitter
+        """Process large documents (>10MB) with robust error handling."""
+        from app.services.large_document_processor import RobustLargeDocumentProcessor
         
-        # Step 1: Load document metadata and check page count
-        with self._task_lock:
-            task.message = "Analyzing document structure..."
-            task.progress = 5
-        
-        # Use streaming loader to avoid loading all pages at once
-        reader = SimpleDirectoryReader(input_files=[file_path], filename_as_id=True)
-        
-        # Load first chunk to estimate total size
-        all_docs = reader.load_data()
-        total_nodes = len(all_docs)
-        
-        with self._task_lock:
-            task.total_pages = total_nodes
-            task.message = f"Document loaded: {total_nodes} segments"
-            task.progress = 10
-        
-        logger.info(f"[AsyncIndexing] Large document: {total_nodes} segments to process")
-        
-        # Step 2: Parse into smaller chunks using node parser
-        node_parser = SentenceSplitter(chunk_size=1000, chunk_overlap=200)
-        nodes = node_parser.get_nodes_from_documents(all_docs)
-        total_nodes = len(nodes)
-        
-        with self._task_lock:
-            task.total_pages = total_nodes
-            task.chunk_count = total_nodes
-            task.message = f"Parsed into {total_nodes} chunks"
-            task.progress = 15
-        
-        logger.info(f"[AsyncIndexing] Parsed into {total_nodes} chunks")
-        
-        # Step 3: Setup vector store
+        # Setup
         settings = get_settings()
         embed_model = self.model_service.get_provider().get_embedding_model(
             settings.default_embedding_model
         )
         vector_store = self.vector_store_provider.get_vector_store()
         
-        # Step 4: Process chunks in batches with parallel embedding
-        processed = 0
-        failed_chunks = []
-        
-        # Process in larger batches for efficiency
-        batch_size = self.EMBEDDING_BATCH_SIZE
-        
-        for batch_start in range(0, total_nodes, batch_size):
-            batch_end = min(batch_start + batch_size, total_nodes)
-            batch_nodes = nodes[batch_start:batch_end]
-            
+        # Create progress callback
+        def progress_callback(percent, message):
             with self._task_lock:
-                task.progress = 15 + int((processed / total_nodes) * 80)
-                task.processed_pages = processed
-                task.message = f"Embedding chunks {batch_start + 1}-{batch_end}/{total_nodes}..."
-            
-            try:
-                # Generate embeddings for this batch
-                batch_embeddings = self._generate_embeddings_batch(
-                    batch_nodes, embed_model
-                )
-                
-                # Insert into vector store
-                self._insert_nodes_batch(vector_store, batch_nodes, batch_embeddings)
-                
-                processed += len(batch_nodes)
-                
-                # Small delay to prevent overwhelming the system
-                time.sleep(0.1)
-                
-            except Exception as e:
-                logger.error(f"[AsyncIndexing] Batch {batch_start}-{batch_end} failed: {e}")
-                failed_chunks.extend(batch_nodes)
-                # Continue with next batch
+                task.progress = percent
+                task.message = message
         
-        # Retry failed chunks once
-        if failed_chunks:
-            logger.info(f"[AsyncIndexing] Retrying {len(failed_chunks)} failed chunks...")
-            with self._task_lock:
-                task.message = f"Retrying {len(failed_chunks)} failed chunks..."
-            
-            retry_success = 0
-            for node in failed_chunks:
-                try:
-                    text = node.get_content()
-                    embedding = embed_model.get_text_embedding(text)
-                    self._insert_single_node(vector_store, node, embedding)
-                    retry_success += 1
-                    time.sleep(0.1)
-                except Exception as e:
-                    logger.warning(f"[AsyncIndexing] Retry failed for chunk: {e}")
-            
-            processed += retry_success
+        # Use robust processor
+        processor = RobustLargeDocumentProcessor(embed_model, vector_store)
+        result = processor.process_document(file_path, progress_callback)
         
-        # Step 5: Mark as completed
+        # Update task status
         with self._task_lock:
-            task.status = TaskStatus.COMPLETED
+            task.total_pages = result['total_chunks']
+            task.chunk_count = result['total_chunks']
+            task.processed_pages = result['successful']
             task.progress = 100
-            task.processed_pages = processed
-            task.message = f"Completed! Indexed {processed}/{total_nodes} chunks."
             task.completed_at = datetime.now()
+            
+            if result['success_rate'] >= 0.8:
+                task.status = TaskStatus.COMPLETED
+                task.message = f"Completed! Indexed {result['successful']}/{result['total_chunks']} chunks ({result['success_rate']*100:.0f}%)"
+            else:
+                task.status = TaskStatus.FAILED
+                task.message = f"Low success rate: {result['success_rate']*100:.1f}% ({result['successful']}/{result['total_chunks']})"
+                task.error = f"Failed chunks: {result['failed_indices'][:10]}"
         
-        logger.info(f"[AsyncIndexing] Large document task {task.task_id} completed: {processed}/{total_nodes} chunks")
+        logger.info(
+            f"[AsyncIndexing] Large document task {task.task_id} completed: "
+            f"{result['successful']}/{result['total_chunks']} chunks "
+            f"({result['success_rate']*100:.1f}% success rate)"
+        )
     
     def _process_normal_document(self, task: IndexingTask, file_path: str):
         """Process normal-sized documents with standard approach."""
